@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { api, API_URL, type User } from "@/lib/api";
-import { getToken } from "@/lib/session";
 import { useApi } from "@/lib/hooks";
 import { Empty, ErrorBox, Loading, PageTitle, useCatalog } from "@/components/ui";
 
@@ -85,7 +84,7 @@ function CsvImport() {
     const body = new FormData();
     body.append("file", file);
     try {
-      const res = await fetch(`${API_URL}/api/v1/import/matches?dry_run=${dry}`, { method: "POST", body, headers: { Authorization: `Bearer ${getToken()}` } });
+      const res = await fetch(`${API_URL}/api/v1/import/matches?dry_run=${dry}`, { method: "POST", body, credentials: "include" });
       const j = await res.json();
       if (res.ok) setReport(j);
       else if (j.detail?.errors) setErrors(j.detail.errors);

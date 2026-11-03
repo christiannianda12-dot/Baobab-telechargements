@@ -36,6 +36,7 @@ def test_update_match_result(client, auth_headers, match):  # noqa: F811
 
 def _login(client, email):
     r = client.post("/api/v1/auth/login", data={"username": email, "password": REG["password"]})
+    client.cookies.clear()
     return {"Authorization": f"Bearer {r.json()['access_token']}"}
 
 

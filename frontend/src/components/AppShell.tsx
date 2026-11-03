@@ -4,8 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useSyncExternalStore } from "react";
 import { useApi, useToken } from "@/lib/hooks";
-import { setToken } from "@/lib/session";
-import type { User } from "@/lib/api";
+import { logout, type User } from "@/lib/api";
 
 const NAV = [
   { href: "/dashboard", label: "Tableau de bord", short: "Accueil", icon: "▦" },
@@ -51,7 +50,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
         <div className="border-t border-border pt-3 text-xs text-muted">
           <p className="truncate">{user?.display_name ?? "…"}</p>
-          <button className="mt-1 underline" onClick={() => setToken(null)}>Se déconnecter</button>
+          <button className="mt-1 underline" onClick={logout}>Se déconnecter</button>
         </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col pb-16 md:pb-0">

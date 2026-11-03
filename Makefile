@@ -1,4 +1,4 @@
-.PHONY: test-pg install backend-install frontend-install migrate api web test lint backup
+.PHONY: audit docker-up test-pg install backend-install frontend-install migrate api web test lint backup
 
 install: backend-install frontend-install
 
@@ -30,3 +30,10 @@ backup:
 # Tests sur PostgreSQL : TEST_DATABASE_URL=postgresql+psycopg://user:pass@localhost:5432/predix_test make test-pg
 test-pg:
 	cd backend && . .venv/bin/activate && pip install -q -r requirements-postgres.txt && python -m pytest
+
+audit:
+	cd backend && . .venv/bin/activate && pip install -q pip-audit && pip-audit -r requirements.txt
+	cd frontend && npm audit --omit=dev --audit-level=high
+
+docker-up:
+	docker compose up --build

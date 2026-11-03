@@ -30,7 +30,7 @@ def main() -> int:
         return 1
     dest_dir = src.parent / "backups"
     dest_dir.mkdir(exist_ok=True)
-    dest = dest_dir / f"predix-{datetime.now():%Y%m%d-%H%M%S}.db"
+    dest = dest_dir / f"predix-{datetime.now():%Y%m%d-%H%M%S-%f}.db"
     with sqlite3.connect(src) as s, sqlite3.connect(dest) as d:
         s.backup(d)
     for old in sorted(dest_dir.glob("predix-*.db"))[:-keep]:

@@ -4,7 +4,7 @@
 
 Plateforme d'analyse et de prédiction sportive, **locale d'abord**, sans dépendance à Supabase ni à un service payant.
 
-> **État : étapes 1 à 7 faites. Reste : modèles avancés (données réelles requises) et étape 8 (sécurisation, déploiement).** Aucune prédiction n'est encore produite. Le moteur statistique sera construit à l'étape 5, après validation.
+> **État : les 8 étapes du plan sont réalisées.** Évolutions restantes (dépendent d'éléments extérieurs) : modèles avancés (historique réel), connecteurs API (clés), connecteur LLM (clé). Aucune prédiction n'est encore produite. Le moteur statistique sera construit à l'étape 5, après validation.
 
 ## Stack
 
@@ -72,6 +72,10 @@ cd frontend && npm install && npm run dev
 | Admin | `GET /admin/users`, `PATCH /admin/users/{id}`, `POST /admin/providers/sync`, `GET /admin/providers` |
 
 Les cotes n'existent que si elles ont été saisies. L'analyse n'applique la correction de marge qu'aux marchés **complets** (1X2, Over/Under, BTTS).
+
+## Sécurité et déploiement
+
+Cookie de session `HttpOnly`, protection CSRF, en-têtes de sécurité, configuration de production stricte, audit des dépendances, conteneurs non-root, sauvegardes testées. Détail et **limites connues** : [`docs/SECURITY.md`](docs/SECURITY.md). Déploiement (`docker compose`, HTTPS, sauvegardes, CI) : [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 ## Assistant et combinés
 

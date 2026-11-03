@@ -28,6 +28,12 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"
     data_mode: DataMode = DataMode.MANUAL
     auth_rate_limit_per_minute: int = Field(default=10, ge=1)
+    session_cookie_name: str = "predix_session"
+    cookie_secure: bool | None = None  # None => True en production (HTTPS obligatoire), False sinon
+    cookie_samesite: str = "lax"
+    trust_proxy_headers: bool = (
+        False  # True derrière un reverse proxy de confiance (X-Forwarded-For)
+    )
 
     # Modèle de langage (optionnel). Aucun connecteur implémenté : la clé est ignorée tant qu'il n'existe pas.
     llm_provider: str = ""
@@ -44,6 +50,12 @@ class Settings(BaseSettings):
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
     @property
+    def cookie_secure_effective(self) -> bool:
+        return (
+            self.environment == "production" if self.cookie_secure is None else self.cookie_secure
+        )
+
+    @property
     def is_sqlite(self) -> bool:
         return self.database_url.startswith("sqlite")
 
@@ -53,6 +65,12 @@ class Settings(BaseSettings):
             self.secret_key == INSECURE_DEFAULT_SECRET or len(self.secret_key) < 32
         ):
             raise ValueError("SECRET_KEY doit être défini (>= 32 caractères) en production.")
+        if self.environment == "production" and any(
+            o in ("*", "") or o.startswith("http://localhost") for o in self.cors_origin_list
+        ):
+            raise ValueError(
+                "CORS_ORIGINS doit lister les origines HTTPS réelles en production (pas de * ni localhost)."
+            )
         return self
 
 

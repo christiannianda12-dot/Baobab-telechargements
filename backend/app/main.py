@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import api_router
 from app.core.config import get_settings
+from app.core.middleware import OriginCheckMiddleware, SecurityHeadersMiddleware
 
 
 def create_app() -> FastAPI:
@@ -16,9 +17,12 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=s.cors_origin_list,
+        allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
         allow_headers=["Authorization", "Content-Type"],
     )
+    app.add_middleware(OriginCheckMiddleware)
+    app.add_middleware(SecurityHeadersMiddleware)
     app.include_router(api_router)
     return app
 

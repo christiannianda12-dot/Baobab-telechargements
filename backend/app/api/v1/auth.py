@@ -1,10 +1,11 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 
 from app.api.deps import CurrentUser, DbDep
+from app.core.config import get_settings
 from app.core.rate_limit import auth_rate_limit
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models import User
@@ -38,12 +39,37 @@ def register(payload: UserCreate, db: DbDep):
 
 
 @router.post("/login", response_model=Token, dependencies=[Depends(auth_rate_limit)])
-def login(form: Annotated[OAuth2PasswordRequestForm, Depends()], db: DbDep):
+def login(form: Annotated[OAuth2PasswordRequestForm, Depends()], db: DbDep, response: Response):
     user = db.scalar(select(User).where(User.email == form.username.lower()))
     ok = verify_password(form.password, user.hashed_password if user else _DUMMY_HASH)
     if not (user and ok and user.is_active):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Identifiants incorrects.")
-    return Token(access_token=create_access_token(str(user.id)))
+    token = create_access_token(str(user.id))
+    st = get_settings()
+    response.set_cookie(
+        st.session_cookie_name,
+        token,
+        max_age=st.access_token_minutes * 60,
+        httponly=True,
+        secure=st.cookie_secure_effective,
+        samesite=st.cookie_samesite,
+        path="/",
+    )
+    return Token(
+        access_token=token
+    )  # le navigateur utilise le cookie ; le corps sert aux clients API/scripts
+
+
+@router.post("/logout", status_code=204)
+def logout(response: Response):
+    st = get_settings()
+    response.delete_cookie(
+        st.session_cookie_name,
+        path="/",
+        secure=st.cookie_secure_effective,
+        httponly=True,
+        samesite=st.cookie_samesite,
+    )
 
 
 @router.get("/me", response_model=UserOut)

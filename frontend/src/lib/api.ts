@@ -1,5 +1,5 @@
 /** Client API. L'URL vient de NEXT_PUBLIC_API_URL ; aucune clé secrète ne passe par le frontend. */
-import { getToken } from "@/lib/session";
+import { setToken } from "@/lib/session";
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -26,8 +26,6 @@ export class ApiError extends Error {
 
 export async function api<T>(path: string, init: RequestInit & { json?: unknown; form?: Record<string, string> } = {}): Promise<T> {
   const headers = new Headers(init.headers);
-  const token = getToken();
-  if (token) headers.set("Authorization", `Bearer ${token}`);
   let body = init.body;
   if (init.json !== undefined) {
     headers.set("Content-Type", "application/json");
@@ -35,7 +33,7 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown;
   } else if (init.form) {
     body = new URLSearchParams(init.form);
   }
-  const res = await fetch(`${API_URL}/api/v1${path}`, { ...init, headers, body, cache: "no-store" });
+  const res = await fetch(`${API_URL}/api/v1${path}`, { ...init, headers, body, cache: "no-store", credentials: "include" });
   if (!res.ok) {
     let detail = `Erreur ${res.status}`;
     try {
@@ -45,4 +43,12 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown;
     throw new ApiError(res.status, detail);
   }
   return (await res.json()) as T;
+}
+
+/** Déconnexion : l'API efface le cookie ; puis on retire l'indicateur local. */
+export async function logout(): Promise<void> {
+  try {
+    await api("/auth/logout", { method: "POST" });
+  } catch {}
+  setToken(null);
 }

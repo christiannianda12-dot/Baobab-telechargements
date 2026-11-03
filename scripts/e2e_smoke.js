@@ -12,6 +12,11 @@ const assert = require("assert");
   await p.click("button:has-text(\"S'inscrire\")"); await p.waitForURL("**/dashboard");
   await p.waitForSelector("text=Aucun match enregistré aujourd");
   console.log("2 inscription + connexion + dashboard vide honnête OK");
+  const leak = await p.evaluate(() => ({ cookie: document.cookie, ls: JSON.stringify(Object.entries(localStorage)) }));
+  if (/predix_session=|eyJ/.test(leak.cookie + leak.ls)) throw new Error("jeton lisible par le JavaScript : " + JSON.stringify(leak));
+  const ck = (await p.context().cookies()).find((c) => c.name === "predix_session");
+  if (!ck || !ck.httpOnly || ck.sameSite !== "Lax") throw new Error("cookie de session absent ou mal configuré");
+  console.log("2b cookie HttpOnly + SameSite=Lax, aucun jeton dans localStorage/document.cookie OK");
   await p.screenshot({ path: "/tmp/dash-mobile.png" });
   await p.goto("http://localhost:3000/admin"); await p.waitForSelector("text=Saisie manuelle");
   const add = async (ph, v, btn) => { await p.fill(`[placeholder="${ph}"]`, v); await p.click(`button:has-text("${btn}")`); await p.waitForSelector("text=ajouté"); };
@@ -28,7 +33,7 @@ const assert = require("assert");
   }
   await p.waitForSelector("text=marge 4.8 %"); await p.waitForSelector("text=45.4 %");
   console.log("4 cotes + marge 4.8 % + proba corrigée 45.4 % OK");
-  await p.waitForSelector("text=Aucun modèle disponible");
+  await p.waitForSelector("text=Prédiction non produite");
   for (const path of ["assistant","combos","history","performance","calendar","settings"]) { await p.goto("http://localhost:3000/"+path); await p.waitForSelector("h1"); }
   await p.goto("http://localhost:3000/settings"); await p.waitForSelector("text=API et base de données opérationnelles");
   await p.screenshot({ path: "/tmp/settings-mobile.png" });

@@ -45,7 +45,7 @@
 SQLAlchemy 2 + Alembic en mode batch + conventions de nommage des contraintes. Passage : installer `psycopg[binary]`, changer `DATABASE_URL`, relancer `alembic upgrade head`. **Validé** : migrations (aller-retour) et suite de tests complète passées sur PostgreSQL 16 (`TEST_DATABASE_URL`). Reste à faire : CI automatisée avec PostgreSQL.
 
 ## Sécurité (état actuel)
-bcrypt, JWT signé (HS256) à expiration, `SECRET_KEY` obligatoire ≥ 32 car. en production, limitation de débit sur login/inscription (en mémoire : instance unique), CORS restreint, docs API masquées en production, temps de réponse égalisé sur login. **Frontend** : le jeton est stocké dans localStorage (exposé à une faille XSS) — à remplacer par un cookie httpOnly avant la production. **À faire** : révocation/rafraîchissement de jetons, limiteur partagé (Redis) en production, en-têtes de sécurité côté reverse proxy.
+(Voir `docs/SECURITY.md` pour l'état à jour.) bcrypt, JWT signé (HS256) à expiration, `SECRET_KEY` obligatoire ≥ 32 car. en production, limitation de débit sur login/inscription (en mémoire : instance unique), CORS restreint, docs API masquées en production, temps de réponse égalisé sur login. **À faire** : révocation/rafraîchissement de jetons, limiteur partagé (Redis) en production, en-têtes de sécurité côté reverse proxy.
 
 ## Risques techniques
 | Risque | Mitigation |
@@ -65,4 +65,4 @@ bcrypt, JWT signé (HS256) à expiration, `SECRET_KEY` obligatoire ≥ 32 car. e
 5. ◐ Moteur statistique — palier 1 fait : Poisson, Elo, métriques, backtest. Reporté (nécessite un historique réel) : régression logistique, XGBoost, recalibration (isotonique/Platt), corners, mi-temps. 
 6. ✅ Assistant conversationnel en mode règles + générateur de combinés (interface LLM prévue, non branchée : rien n'est simulé)
 7. ✅ Historique et évaluation (enregistrement immuable par déclencheurs SQL, règlement, Brier/Log Loss/ROI) (Brier, Log Loss, ROI)
-8. Tests, sécurisation, déploiement
+8. ✅ Tests, sécurisation, déploiement (cookie HttpOnly, CSRF, en-têtes, Docker/compose testés, CI, sauvegardes testées)

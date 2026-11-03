@@ -55,4 +55,5 @@ def auth_headers(client):
         "/api/v1/auth/login",
         data={"username": "admin@example.com", "password": "motdepasse-solide-1"},
     )
+    client.cookies.clear()  # les tests passent l'en-tête explicitement ; le cookie a ses tests dédiés
     return {"Authorization": f"Bearer {r.json()['access_token']}"}

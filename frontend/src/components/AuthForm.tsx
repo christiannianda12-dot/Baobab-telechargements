@@ -20,8 +20,8 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
     try {
       if (mode === "register")
         await api("/auth/register", { method: "POST", json: { email, password, display_name: String(f.get("display_name")) } });
-      const t = await api<{ access_token: string }>("/auth/login", { method: "POST", form: { username: email, password } });
-      setToken(t.access_token);
+      await api("/auth/login", { method: "POST", form: { username: email, password } }); // pose le cookie HttpOnly
+      setToken("1");
       router.replace("/dashboard");
     } catch (err) {
       setError((err as Error).message);

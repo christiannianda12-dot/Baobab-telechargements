@@ -3,8 +3,7 @@
 import ApiStatus from "@/components/ApiStatus";
 import { PageTitle } from "@/components/ui";
 import { useApi } from "@/lib/hooks";
-import { setToken } from "@/lib/session";
-import type { User } from "@/lib/api";
+import { logout, type User } from "@/lib/api";
 
 export default function Settings() {
   const { data: user } = useApi<User>("/auth/me");
@@ -15,7 +14,7 @@ export default function Settings() {
         <h2 className="mb-2 font-medium">Compte</h2>
         <p className="text-sm">{user?.display_name} · <span className="text-muted">{user?.email}</span></p>
         <p className="mt-1 text-xs text-muted">Rôle : {user?.role}</p>
-        <button className="btn-ghost mt-3" onClick={() => setToken(null)}>Se déconnecter</button>
+        <button className="btn-ghost mt-3" onClick={logout}>Se déconnecter</button>
       </section>
       <section className="card">
         <h2 className="mb-3 font-medium">Système et fournisseurs de données</h2>
