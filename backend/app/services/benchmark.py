@@ -136,6 +136,26 @@ def compute(db: Session, competition_id: int) -> dict:
             }
         )
 
+    # Courbes pour les graphiques : calibration (victoire domicile) et cumuls dans le temps (sous-échantillonnés).
+    hit_home = [o == 0 for o in outs]
+    calib = {
+        "model": metrics.calibration_bins([p[0] for p in p_model], hit_home),
+        "market": metrics.calibration_bins([p[0] for p in p_market], hit_home),
+    }
+    cum_b = cum_p = 0.0
+    series = []
+    for e, d in zip(joint, d_brier, strict=True):
+        cum_b += d
+        odds = mk[e["rec"].match_id][1]
+        for k in range(3):
+            if e["probs"][k] * odds[k] - 1 > 0:
+                cum_p += (odds[k] - 1) if e["outcome"] == k else -1
+        series.append(
+            {"date": e["rec"].when.date().isoformat(), "brier_gap": cum_b, "profit": cum_p}
+        )
+    step = max(1, len(series) // 150)
+    cumulative = series[::step] + ([series[-1]] if (len(series) - 1) % step else [])
+
     z = pb["z"]
     if z > 2:
         verdict = "Le marché est significativement plus précis que le modèle : n'engagez pas d'argent sur ses écarts."

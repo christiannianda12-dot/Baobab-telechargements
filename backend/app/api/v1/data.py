@@ -13,7 +13,7 @@ MAX_BYTES = 2_000_000
 
 @router.post("/import/matches")
 async def import_matches(
-    db: DbDep, _: CurrentUser, file: Annotated[UploadFile, File()], dry_run: bool = False
+    db: DbDep, user: CurrentUser, file: Annotated[UploadFile, File()], dry_run: bool = False
 ):
     """Import CSV de matchs terminés (tout-ou-rien). `dry_run=true` valide sans rien écrire."""
     raw = await file.read(MAX_BYTES + 1)
@@ -25,7 +25,14 @@ async def import_matches(
         text = raw.decode("utf-8-sig")
     except UnicodeDecodeError:
         raise HTTPException(422, "Le fichier doit être encodé en UTF-8.") from None
-    rep = import_csv(db, text, dry_run=dry_run)
+    rep = import_csv(
+        db,
+        text,
+        dry_run=dry_run,
+        user_id=user.id,
+        source="upload",
+        label=file.filename or "fichier.csv",
+    )
     body = rep.__dict__
     if rep.errors:
         raise HTTPException(422, detail={"message": "Import refusé : aucune ligne écrite.", **body})

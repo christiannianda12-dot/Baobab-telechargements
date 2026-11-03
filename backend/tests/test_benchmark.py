@@ -138,4 +138,7 @@ def test_benchmark_compares_on_identical_matches_and_reports_value_bets(client, 
         thr == sorted(thr) and r["value_bets"][0]["bets"] >= r["value_bets"][-1]["bets"]
     )  # seuil plus strict => moins de paris
     assert "verdict" in r and r["notes"]
+    assert r["calibration"]["model"] and r["cumulative"][-1]["brier_gap"] == pytest.approx(
+        d["mean"] * r["matches"]
+    )
     assert client.get("/api/v1/benchmark/999").status_code == 404

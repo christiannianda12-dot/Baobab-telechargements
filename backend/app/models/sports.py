@@ -74,6 +74,7 @@ class Match(_Sourced, Base):
     away_score: Mapped[int | None] = mapped_column(Integer)
     home_score_ht: Mapped[int | None] = mapped_column(Integer)
     away_score_ht: Mapped[int | None] = mapped_column(Integer)
+    import_batch_id: Mapped[int | None] = mapped_column(ForeignKey("import_batches.id"), index=True)
 
     competition: Mapped[Competition] = relationship()
     home_team: Mapped[Team] = relationship(foreign_keys=[home_team_id])

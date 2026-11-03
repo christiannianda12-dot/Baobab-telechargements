@@ -7,6 +7,7 @@ from app.api.v1 import (
     benchmark,
     combos,
     data,
+    dataops,
     health,
     models,
     odds,
@@ -28,3 +29,4 @@ api_router.include_router(tracking.router)
 api_router.include_router(combos.router)
 api_router.include_router(assistant.router)
 api_router.include_router(benchmark.router)
+api_router.include_router(dataops.router)
