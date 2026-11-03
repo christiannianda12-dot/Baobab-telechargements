@@ -6,7 +6,7 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Competition, Match
+from app.models import Competition, Match, MatchStatistics
 from app.models.sports import MatchStatus
 
 
@@ -18,6 +18,8 @@ class Rec:
     hg: int
     ag: int
     match_id: int = 0
+    hsot: float | None = None  # tirs cadrés domicile (si connus)
+    asot: float | None = None
 
 
 def sibling_ids(db: Session, competition_id: int) -> list[int]:
@@ -43,8 +45,23 @@ def load_finished(db: Session, competition_id: int, before: datetime | None = No
     )
     if before is not None:
         q = q.where(Match.kickoff_at < before)
-    rows = db.scalars(q.order_by(Match.kickoff_at, Match.id))
+    matches = list(db.scalars(q.order_by(Match.kickoff_at, Match.id)))
+    sot: dict[tuple[int, int], int | None] = {}
+    if matches:
+        for st in db.scalars(
+            select(MatchStatistics).where(MatchStatistics.match_id.in_([m.id for m in matches]))
+        ):
+            sot[(st.match_id, st.team_id)] = st.shots_on_target
     return [
-        Rec(m.kickoff_at, m.home_team_id, m.away_team_id, m.home_score, m.away_score, m.id)
-        for m in rows
+        Rec(
+            m.kickoff_at,
+            m.home_team_id,
+            m.away_team_id,
+            m.home_score,
+            m.away_score,
+            m.id,
+            sot.get((m.id, m.home_team_id)),
+            sot.get((m.id, m.away_team_id)),
+        )
+        for m in matches
     ]

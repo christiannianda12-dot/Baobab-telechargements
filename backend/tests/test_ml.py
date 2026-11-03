@@ -24,7 +24,7 @@ def test_markets_are_coherent():
 
 def test_markets_match_hand_computation():
     lam = 1.0  # deux équipes à 1 but attendu : P(0-0) = e^-2
-    mk = poisson.markets(lam, lam)
+    mk = poisson.markets(lam, lam, rho=0.0)  # sans correction : formules de Poisson pures
     assert mk["1X2"]["home"] == pytest.approx(mk["1X2"]["away"])
     assert mk["OU"]["0.5"]["under"] == pytest.approx(math.exp(-2), rel=1e-6)
     assert mk["BTTS"]["yes"] == pytest.approx((1 - math.exp(-1)) ** 2, rel=1e-6)
@@ -126,3 +126,42 @@ def test_seasons_of_same_league_are_pooled_but_other_leagues_are_not(db_session)
     assert (
         len(load_finished(db_session, s2.id, before=T0 + timedelta(days=1))) == 1
     )  # pas de fuite du futur
+
+
+def test_dixon_coles_raises_low_score_draws_and_keeps_probabilities_normalised():
+    ind, dc = (
+        poisson.score_matrix(1.3, 1.1, rho=0.0),
+        poisson.score_matrix(1.3, 1.1),
+    )  # rho négatif par défaut
+    assert sum(map(sum, dc)) == pytest.approx(1.0)
+    assert dc[0][0] > ind[0][0] and dc[1][1] > ind[1][1]  # plus de 0-0 et 1-1
+    assert dc[0][1] < ind[0][1] and dc[1][0] < ind[1][0]
+    assert (
+        poisson.markets(1.3, 1.1)["1X2"]["draw"] > poisson.markets(1.3, 1.1, rho=0.0)["1X2"]["draw"]
+    )
+
+
+def test_shots_on_target_dampen_lucky_goals_and_missing_data_falls_back_to_goals():
+    from dataclasses import replace
+
+    base = [
+        Rec(T0 + timedelta(days=i), 1 + i % 2, 3 + i % 2, 4, 0) for i in range(12)
+    ]  # équipe 1/2 marque 4 buts à chaque match
+    base += [Rec(T0 + timedelta(days=20 + i), 5, 6, 1, 1) for i in range(12)]
+    cut = T0 + timedelta(days=60)
+    goals_only = poisson.fit(base, cut, sot_blend=1.0)
+    with_sot = poisson.fit(
+        [replace(r, hsot=3, asot=3) for r in base], cut
+    )  # 4 buts pour 3 tirs cadrés : chance
+    assert with_sot.attack[1] < goals_only.attack[1]
+    # sans aucune donnée de tirs cadrés, le mélange ne change rien
+    assert poisson.fit(base, cut).attack == pytest.approx(goals_only.attack)
+
+
+def test_version_and_params_are_reported():
+    f = poisson.fit(league()[0][:50], T0 + timedelta(days=1000))
+    assert (
+        poisson.MODEL_VERSION == "1.1.0"
+        and f.params["sot_blend"] == poisson.SOT_BLEND
+        and f.params["dc_rho"] == poisson.DC_RHO
+    )

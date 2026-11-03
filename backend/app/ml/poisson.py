@@ -18,12 +18,15 @@ import numpy as np
 from app.ml.data import Rec
 
 MODEL_NAME = "poisson"
-MODEL_VERSION = "1.0.0"
+MODEL_VERSION = "1.1.0"
+SOT_BLEND = 0.5  # part des buts réels dans le signal de force (le reste : tirs cadrés convertis au taux de la ligue)
+DC_RHO = -0.06  # correction de Dixon-Coles des scores faibles (choisi sur les deux premières saisons, validé ensuite)
 MIN_LEAGUE_MATCHES = 30
 MIN_TEAM_MATCHES = 5
 MAX_GOALS = 12
 LIMITATIONS = [
-    "Buts supposés indépendants (pas de correction de Dixon-Coles) : nuls et scores faibles approximatifs.",
+    "Buts supposés indépendants, avec une correction légère des scores faibles (Dixon-Coles) : nuls approximatifs.",
+    "Sur l'historique testé, le marché des bookmakers reste plus précis que ce modèle (voir la page Fiabilité).",
     "N'intègre ni blessures, ni suspensions, ni compositions, ni motivation.",
     "Force des équipes estimée uniquement sur les matchs de cette compétition déjà enregistrés.",
     "Estimation statistique, jamais une certitude.",
@@ -47,10 +50,16 @@ def fit(
     half_life_days: float = 365.0,
     shrink: float = 5.0,
     iters: int = 30,
+    sot_blend: float = SOT_BLEND,
 ) -> Fit:
     """Estimation vectorisée (numpy). Mêmes formules que la version itérative d'origine."""
     recs = [r for r in recs if r.when < as_of]  # garde-fou anti-fuite
-    params = {"half_life_days": half_life_days, "shrink": shrink}
+    params = {
+        "half_life_days": half_life_days,
+        "shrink": shrink,
+        "sot_blend": sot_blend,
+        "dc_rho": DC_RHO,
+    }
     if not recs:
         return Fit(0.0, 0.0, {}, {}, {}, 0, params)
     team_ids = sorted({t for r in recs for t in (r.home, r.away)})
@@ -60,6 +69,16 @@ def fit(
     a = np.fromiter((pos[r.away] for r in recs), dtype=np.intp, count=len(recs))
     hg = np.fromiter((r.hg for r in recs), dtype=float, count=len(recs))
     ag = np.fromiter((r.ag for r in recs), dtype=float, count=len(recs))
+    if sot_blend < 1.0:
+        # Signal de force moins bruité que les buts seuls : mélange buts réels / tirs cadrés x taux de conversion de la
+        # ligue (estimé sur l'entraînement uniquement). Sans tirs cadrés connus pour un match : buts réels.
+        has = np.array([r.hsot is not None and r.asot is not None for r in recs])
+        if has.any():
+            hs = np.array([r.hsot if r.hsot is not None else 0.0 for r in recs], dtype=float)
+            as_ = np.array([r.asot if r.asot is not None else 0.0 for r in recs], dtype=float)
+            conv = (hg[has] + ag[has]).sum() / max((hs[has] + as_[has]).sum(), 1.0)
+            hg = np.where(has, sot_blend * hg + (1 - sot_blend) * conv * hs, hg)
+            ag = np.where(has, sot_blend * ag + (1 - sot_blend) * conv * as_, ag)
     age = (
         np.fromiter(
             (max(as_of.timestamp() - r.when.timestamp(), 0.0) for r in recs),
@@ -117,13 +136,25 @@ def _pmf(lam: float) -> list[float]:
     return [x / s for x in p]
 
 
-def score_matrix(lh: float, la: float) -> list[list[float]]:
+def score_matrix(lh: float, la: float, rho: float = DC_RHO) -> list[list[float]]:
+    """Matrice des scores : Poisson indépendant, corrigé aux scores 0-0, 0-1, 1-0, 1-1 (Dixon-Coles), renormalisée."""
     ph, pa = _pmf(lh), _pmf(la)
-    return [[x * y for y in pa] for x in ph]
+    m = [[x * y for y in pa] for x in ph]
+    if rho:
+        for (i, j), t in {
+            (0, 0): 1 - lh * la * rho,
+            (0, 1): 1 + lh * rho,
+            (1, 0): 1 + la * rho,
+            (1, 1): 1 - rho,
+        }.items():
+            m[i][j] *= max(t, 1e-9)
+        tot = sum(map(sum, m))
+        m = [[x / tot for x in row] for row in m]
+    return m
 
 
-def markets(lh: float, la: float) -> dict:
-    m = score_matrix(lh, la)
+def markets(lh: float, la: float, rho: float = DC_RHO) -> dict:
+    m = score_matrix(lh, la, rho)
     n = range(MAX_GOALS + 1)
     home = sum(m[i][j] for i in n for j in n if i > j)
     draw = sum(m[i][i] for i in n)

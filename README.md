@@ -73,6 +73,21 @@ cd frontend && npm install && npm run dev
 
 Les cotes n'existent que si elles ont été saisies. L'analyse n'applique la correction de marge qu'aux marchés **complets** (1X2, Over/Under, BTTS).
 
+## Fiabilité mesurée (résultats sur 1 146 matchs de Premier League)
+
+| Méthode | Erreur Brier | Log Loss |
+|---|---|---|
+| Hasard pur | 0,667 | 1,099 |
+| Fréquences passées | 0,652 | 1,076 |
+| **Modèle 1.1.0** | **0,590** | **0,989** |
+| Marché (cotes de clôture) | 0,576 | 0,968 |
+
+Le modèle bat nettement la baseline mais **reste moins précis que les bookmakers** (différence établie), et les paris simulés sur ses écarts auraient perdu 12 à 18 %. La page *Fiabilité* de l'application affiche ce banc d'essai en permanence.
+
+## Mettre en ligne
+
+Guide complet, de l'achat du serveur à l'installation sur téléphone : [`docs/SERVEUR.md`](docs/SERVEUR.md).
+
 ## Importer votre historique réel
 
 `python ../scripts/import_csv.py data/import/*.csv` (depuis `backend/`) : accepte le format PREDIX et celui de football-data.co.uk, valide tout avant d'écrire, puis affiche le **premier backtest réel** du modèle (Brier / Log Loss contre la baseline). Détails dans [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).

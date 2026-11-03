@@ -62,7 +62,7 @@ SQLAlchemy 2 + Alembic en mode batch + conventions de nommage des contraintes. P
 2. ✅ Base de données et backend (cotes, statistiques, administration, contraintes d'intégrité, tests SQLite + PostgreSQL)
 3. ✅ Interface et tableau de bord (12 pages, navigation mobile, test E2E)
 4. ✅ Gestion des données sportives (import CSV, forme/H2H sans fuite temporelle). Connecteurs API réels : reportés, en attente d'une clé (voir PROVIDERS.md)
-5. ◐ Moteur statistique — palier 1 fait : Poisson, Elo, métriques, backtest. Reporté (nécessite un historique réel) : régression logistique, XGBoost, recalibration (isotonique/Platt), corners, mi-temps. 
+5. ◐ Moteur statistique — fait : Poisson 1.1.0 (tirs cadrés + Dixon-Coles), Elo, métriques, backtest et banc d'essai contre le marché (mesuré : le marché reste plus précis). Reporté (nécessite un historique réel) : régression logistique, XGBoost, recalibration (isotonique/Platt), corners, mi-temps. 
 6. ✅ Assistant conversationnel en mode règles + générateur de combinés (interface LLM prévue, non branchée : rien n'est simulé)
 7. ✅ Historique et évaluation (enregistrement immuable par déclencheurs SQL, règlement, Brier/Log Loss/ROI) (Brier, Log Loss, ROI)
 8. ✅ Tests, sécurisation, déploiement (cookie HttpOnly, CSRF, en-têtes, Docker/compose testés, CI, sauvegardes testées)

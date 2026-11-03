@@ -5,6 +5,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
+from app.ml import poisson
 from app.models.prediction import PredictionOutcome
 from app.services import tracking
 from tests.synth import league
@@ -40,7 +41,9 @@ def test_record_requires_auth_and_is_idempotent(setup):
     rows = c.get(f"/api/v1/predictions?match_id={mid}").json()
     assert len(rows) == 7 and all(x["outcome"] is None for x in rows)
     p1x2 = [x["probability"] for x in rows if x["market"] == "1X2"]
-    assert sum(p1x2) == pytest.approx(1.0) and rows[0]["model"] == "poisson-1.0.0"
+    assert (
+        sum(p1x2) == pytest.approx(1.0) and rows[0]["model"] == f"poisson-{poisson.MODEL_VERSION}"
+    )
 
 
 def test_record_rejected_after_kickoff_and_without_history(setup, monkeypatch):
