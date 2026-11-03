@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+/* Identité PREDIX AI : noir graphite, vert technologique, blanc, gris argenté. */
+:root {
+  --background: #0b0d0e;
+  --surface: #14181a;
+  --border: #242a2d;
+  --foreground: #f4f6f5;
+  --muted: #9aa5a8;
+  --accent: #22c55e;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}

@@ -1,0 +1,20 @@
+[project]
+name = "predix-ai-backend"
+version = "0.1.0"
+description = "PREDIX AI - API d'analyse sportive (FastAPI + SQLAlchemy)"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501", "UP042"]  # longueur gérée par le formatteur
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E702", "E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
