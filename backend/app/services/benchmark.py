@@ -181,6 +181,8 @@ def compute(db: Session, competition_id: int) -> dict:
         },
         "by_season": seasons,
         "value_bets": value,
+        "calibration": calib,
+        "cumulative": cumulative,
         "verdict": verdict,
         "notes": [
             "Mêmes matchs pour toutes les lignes : ceux que le modèle peut prédire ET qui ont des cotes de clôture complètes.",
