@@ -4,7 +4,7 @@
 
 Plateforme d'analyse et de prédiction sportive, **locale d'abord**, sans dépendance à Supabase ni à un service payant.
 
-> **État : étape 2 (base de données et backend).** Aucune prédiction n'est encore produite. Le moteur statistique sera construit à l'étape 5, après validation.
+> **État : étape 3 (interface).** Aucune prédiction n'est encore produite. Le moteur statistique sera construit à l'étape 5, après validation.
 
 ## Stack
 
@@ -68,6 +68,12 @@ cd frontend && npm install && npm run dev
 | Admin | `GET /admin/users`, `PATCH /admin/users/{id}`, `POST /admin/providers/sync`, `GET /admin/providers` |
 
 Les cotes n'existent que si elles ont été saisies. L'analyse n'applique la correction de marge qu'aux marchés **complets** (1X2, Over/Under, BTTS).
+
+## Interface (12 pages)
+
+Connexion, inscription, tableau de bord, matchs du jour, calendrier, détail d'un match (statistiques, cotes saisies, marge), saisie des cotes et résultats, paramètres, administration (utilisateurs + saisie manuelle). **Assistant, combinés, historique et performance** affichent « Non disponible » avec l'étape prévue : aucune donnée simulée. Navigation latérale sur ordinateur, barre inférieure sur téléphone.
+
+Test de bout en bout : voir `scripts/e2e_smoke.js` (7 scénarios : redirections, inscription, saisie manuelle, cotes, déconnexion).
 
 ## Tests PostgreSQL
 

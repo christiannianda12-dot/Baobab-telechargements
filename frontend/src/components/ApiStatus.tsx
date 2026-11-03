@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiGet, type SystemInfo } from "@/lib/api";
+import { api, type SystemInfo } from "@/lib/api";
 
 type State =
   | { kind: "loading" }
@@ -15,7 +15,7 @@ export default function ApiStatus() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([apiGet<{ status: string }>("/health"), apiGet<SystemInfo>("/system/info")])
+    Promise.all([api<{ status: string }>("/health"), api<SystemInfo>("/system/info")])
       .then(([, info]) => !cancelled && setState({ kind: "ok", info }))
       .catch((e: Error) => !cancelled && setState({ kind: "error", message: e.message }));
     return () => {

@@ -45,7 +45,7 @@
 SQLAlchemy 2 + Alembic en mode batch + conventions de nommage des contraintes. Passage : installer `psycopg[binary]`, changer `DATABASE_URL`, relancer `alembic upgrade head`. **Validé** : migrations (aller-retour) et suite de tests complète passées sur PostgreSQL 16 (`TEST_DATABASE_URL`). Reste à faire : CI automatisée avec PostgreSQL.
 
 ## Sécurité (état actuel)
-bcrypt, JWT signé (HS256) à expiration, `SECRET_KEY` obligatoire ≥ 32 car. en production, limitation de débit sur login/inscription (en mémoire : instance unique), CORS restreint, docs API masquées en production, temps de réponse égalisé sur login. **À faire** : révocation/rafraîchissement de jetons, limiteur partagé (Redis) en production, en-têtes de sécurité côté reverse proxy.
+bcrypt, JWT signé (HS256) à expiration, `SECRET_KEY` obligatoire ≥ 32 car. en production, limitation de débit sur login/inscription (en mémoire : instance unique), CORS restreint, docs API masquées en production, temps de réponse égalisé sur login. **Frontend** : le jeton est stocké dans localStorage (exposé à une faille XSS) — à remplacer par un cookie httpOnly avant la production. **À faire** : révocation/rafraîchissement de jetons, limiteur partagé (Redis) en production, en-têtes de sécurité côté reverse proxy.
 
 ## Risques techniques
 | Risque | Mitigation |
@@ -60,7 +60,7 @@ bcrypt, JWT signé (HS256) à expiration, `SECRET_KEY` obligatoire ≥ 32 car. e
 ## Feuille de route
 1. ✅ Architecture et environnement local
 2. ✅ Base de données et backend (cotes, statistiques, administration, contraintes d'intégrité, tests SQLite + PostgreSQL)
-3. Interface et tableau de bord (12 pages, navigation mobile)
+3. ✅ Interface et tableau de bord (12 pages, navigation mobile, test E2E)
 4. Gestion des données sportives (import manuel/CSV, connecteurs réels avec clés)
 5. Moteur statistique et prédictif
 6. Assistant conversationnel (interface LLM débranchée par défaut)
