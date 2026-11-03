@@ -1,5 +1,28 @@
 # Déploiement
 
+## Mise en ligne sur votre serveur (recommandé) — site + application installable
+Prérequis : un serveur Linux (VPS) avec Docker + Docker Compose, un **nom de domaine** dont l'enregistrement DNS `A` pointe vers le serveur, ports **80 et 443** ouverts.
+```bash
+git clone <votre dépôt> predix && cd predix && git checkout claude/predix-ai-setup-tlx60r
+cp .env.example .env     # renseigner : DOMAIN, POSTGRES_PASSWORD (fort), SECRET_KEY (>= 32 car.)
+./scripts/deploy.sh      # construit, démarre, attend la santé de l'API
+```
+- **Caddy** obtient et renouvelle automatiquement le certificat HTTPS. Le site et l'API partagent la même adresse (`https://DOMAIN` et `https://DOMAIN/api/...`).
+- Seuls 80/443 sont exposés ; base et API restent sur le réseau interne.
+- **Sauvegarde PostgreSQL automatique** toutes les 24 h dans `./backups` (14 jours conservés, `BACKUP_KEEP_DAYS`). Copiez ce dossier hors du serveur.
+- Mise à jour : `git pull && ./scripts/deploy.sh`.
+- **Application sur téléphone** : ouvrir `https://DOMAIN` dans Chrome/Safari puis « Ajouter à l'écran d'accueil » (PWA : plein écran, icône, page hors ligne).
+- Importer l'historique réel : voir ci-dessous « Importer un historique ».
+
+## Importer un historique (CSV)
+Formats acceptés : format PREDIX (`frontend/public/modele-matchs.csv`) et **football-data.co.uk** (détecté automatiquement ; compétition déduite de `Div`, saison de la date).
+```bash
+cd backend && . .venv/bin/activate && alembic upgrade head
+python ../scripts/import_csv.py data/import/*.csv --dry-run   # valide sans écrire
+python ../scripts/import_csv.py data/import/*.csv             # importe puis affiche le premier backtest réel
+```
+En production : déposez vos CSV dans `./imports/` sur le serveur puis `docker compose -f docker-compose.prod.yml exec api python -m app.cli.import_csv /imports/*.csv` (ajoutez `--dry-run` pour valider d'abord). Ou via **Administration > Import CSV** (5 000 lignes max par fichier dans l'interface ; la ligne de commande n'a pas cette limite).
+
 ## Essai local (conteneurs)
 ```bash
 cp .env.example .env     # renseigner POSTGRES_PASSWORD, SECRET_KEY (>= 32 car.), CORS_ORIGINS=http://localhost:3000

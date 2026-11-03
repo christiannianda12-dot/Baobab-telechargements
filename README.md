@@ -73,6 +73,10 @@ cd frontend && npm install && npm run dev
 
 Les cotes n'existent que si elles ont été saisies. L'analyse n'applique la correction de marge qu'aux marchés **complets** (1X2, Over/Under, BTTS).
 
+## Importer votre historique réel
+
+`python ../scripts/import_csv.py data/import/*.csv` (depuis `backend/`) : accepte le format PREDIX et celui de football-data.co.uk, valide tout avant d'écrire, puis affiche le **premier backtest réel** du modèle (Brier / Log Loss contre la baseline). Détails dans [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+
 ## Sécurité et déploiement
 
 Cookie de session `HttpOnly`, protection CSRF, en-têtes de sécurité, configuration de production stricte, audit des dépendances, conteneurs non-root, sauvegardes testées. Détail et **limites connues** : [`docs/SECURITY.md`](docs/SECURITY.md). Déploiement (`docker compose`, HTTPS, sauvegardes, CI) : [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).

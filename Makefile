@@ -1,4 +1,4 @@
-.PHONY: audit docker-up test-pg install backend-install frontend-install migrate api web test lint backup
+.PHONY: deploy audit docker-up test-pg install backend-install frontend-install migrate api web test lint backup
 
 install: backend-install frontend-install
 
@@ -37,3 +37,6 @@ audit:
 
 docker-up:
 	docker compose up --build
+
+deploy:
+	./scripts/deploy.sh

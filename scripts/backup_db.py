@@ -3,6 +3,7 @@
 Usage : cd backend && python ../scripts/backup_db.py [--keep 14]
 Pour PostgreSQL (production), utiliser pg_dump / les sauvegardes du fournisseur.
 """
+
 import argparse
 import sqlite3
 import sys

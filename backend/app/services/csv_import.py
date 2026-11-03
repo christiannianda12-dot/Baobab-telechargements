@@ -10,12 +10,13 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from pydantic import BaseModel, Field, ValidationError, field_validator
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import Competition, Match, MatchStatistics, Team
 from app.models.mixins import DataSource
 from app.models.sports import MatchStatus
+from app.services.csv_adapters import to_native
 
 MAX_ROWS = 5000
 REQUIRED = ["date", "competition", "home_team", "away_team", "home_score", "away_score"]
@@ -60,6 +61,7 @@ class ImportReport:
     created_competitions: int = 0
     errors: list[dict] = field(default_factory=list)
     dry_run: bool = False
+    source_format: str = "native"
 
 
 def _num(raw: str | None, as_int: bool):
@@ -74,7 +76,7 @@ def _num(raw: str | None, as_int: bool):
     return v
 
 
-def parse(text: str) -> tuple[list[tuple[int, Row]], list[dict]]:
+def parse(text: str, max_rows: int = MAX_ROWS) -> tuple[list[tuple[int, Row]], list[dict]]:
     reader = csv.DictReader(
         io.StringIO(text.lstrip("﻿")),
         delimiter=";"
@@ -94,8 +96,8 @@ def parse(text: str) -> tuple[list[tuple[int, Row]], list[dict]]:
     reader.fieldnames = header
     rows, errors = [], []
     for i, raw in enumerate(reader, start=2):
-        if len(rows) + len(errors) >= MAX_ROWS:
-            errors.append({"line": i, "error": f"Maximum {MAX_ROWS} lignes par import."})
+        if len(rows) + len(errors) >= max_rows:
+            errors.append({"line": i, "error": f"Maximum {max_rows} lignes par import."})
             break
         try:
             d = {k: (v or "").strip() for k, v in raw.items() if k}
@@ -133,41 +135,49 @@ def parse(text: str) -> tuple[list[tuple[int, Row]], list[dict]]:
     return rows, errors
 
 
-def import_csv(db: Session, text: str, dry_run: bool = False) -> ImportReport:
-    rows, errors = parse(text)
-    rep = ImportReport(rows=len(rows) + len(errors), errors=errors, dry_run=dry_run)
+def import_csv(
+    db: Session,
+    text: str,
+    dry_run: bool = False,
+    max_rows: int = MAX_ROWS,
+    competition: str | None = None,
+    season: str | None = None,
+) -> ImportReport:
+    text, fmt = to_native(text, competition, season)
+    rows, errors = parse(text, max_rows)
+    rep = ImportReport(
+        rows=len(rows) + len(errors), errors=errors, dry_run=dry_run, source_format=fmt
+    )
     if errors:
         return rep  # tout-ou-rien
 
+    # Comparaison insensible à la casse faite en Python (SQLite ne met en minuscules que l'ASCII :
+    # « Atlético » ne serait jamais retrouvé via lower() et serait recréé à chaque import).
     teams: dict[str, Team] = {}
+    for t in db.scalars(select(Team)):
+        teams.setdefault(t.name.strip().casefold(), t)
     comps: dict[tuple[str, str | None], Competition] = {}
+    for c in db.scalars(select(Competition)):
+        comps.setdefault((c.name.strip().casefold(), c.season), c)
     seen: set[tuple] = set()
 
     def team(name: str) -> Team:
-        key = name.strip().lower()
+        key = name.strip().casefold()
         if key not in teams:
-            t = db.scalar(select(Team).where(func.lower(Team.name) == key))
-            if t is None:
-                t = Team(name=name.strip(), source=DataSource.MANUAL)
-                db.add(t)
-                db.flush()
-                rep.created_teams += 1
+            t = Team(name=name.strip(), source=DataSource.MANUAL)
+            db.add(t)
+            db.flush()
+            rep.created_teams += 1
             teams[key] = t
         return teams[key]
 
     def comp(name: str, season: str | None) -> Competition:
-        key = (name.strip().lower(), season)
+        key = (name.strip().casefold(), season)
         if key not in comps:
-            c = db.scalar(
-                select(Competition).where(
-                    func.lower(Competition.name) == key[0], Competition.season == season
-                )
-            )
-            if c is None:
-                c = Competition(name=name.strip(), season=season, source=DataSource.MANUAL)
-                db.add(c)
-                db.flush()
-                rep.created_competitions += 1
+            c = Competition(name=name.strip(), season=season, source=DataSource.MANUAL)
+            db.add(c)
+            db.flush()
+            rep.created_competitions += 1
             comps[key] = c
         return comps[key]
 
