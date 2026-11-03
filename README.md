@@ -4,7 +4,7 @@
 
 Plateforme d'analyse et de prédiction sportive, **locale d'abord**, sans dépendance à Supabase ni à un service payant.
 
-> **État : étape 4 (gestion des données sportives).** Aucune prédiction n'est encore produite. Le moteur statistique sera construit à l'étape 5, après validation.
+> **État : étape 5 (moteur statistique, premier palier).** Aucune prédiction n'est encore produite. Le moteur statistique sera construit à l'étape 5, après validation.
 
 ## Stack
 
@@ -66,9 +66,19 @@ cd frontend && npm install && npm run dev
 | Statistiques | `GET /matches/{id}/statistics`, `PUT /matches/{id}/statistics/{team_id}` |
 | Cotes | `POST/GET /matches/{id}/odds`, `GET /matches/{id}/odds/analysis`, `POST /odds/calculate` |
 | Import et analyse | `POST /import/matches` (CSV, `dry_run`), `GET /matches/{id}/analysis` (forme, domicile/extérieur, confrontations directes) |
+| Moteur | `GET /matches/{id}/prediction`, `GET /competitions/{id}/elo`, `GET /competitions/{id}/backtest` |
 | Admin | `GET /admin/users`, `PATCH /admin/users/{id}`, `POST /admin/providers/sync`, `GET /admin/providers` |
 
 Les cotes n'existent que si elles ont été saisies. L'analyse n'applique la correction de marge qu'aux marchés **complets** (1X2, Over/Under, BTTS).
+
+## Moteur statistique (palier 1)
+
+- **Poisson** (attaque/défense par équipe, avantage du terrain, rétrécissement vers la moyenne, pondération temporelle) : 1X2, double chance, plus/moins 0,5 à 4,5, les deux équipes marquent, scores indicatifs.
+- **Refus de prédire** sous 30 matchs d'historique dans la compétition ou 5 matchs par équipe : l'écran affiche la raison, jamais une probabilité inventée.
+- **Valeur espérée** calculée uniquement sur les cotes que vous avez saisies.
+- **Elo** : classement de force relative (les probabilités viennent de Poisson).
+- **Backtest chronologique** : chaque match est prédit avec les seuls matchs antérieurs ; Brier, Log Loss, comparés à une baseline (fréquences passées) et table de calibration. En dessous de 100 matchs évalués, le résultat est signalé comme non fiable.
+- Les tests utilisent des ligues **synthétiques** (générées en mémoire, jamais insérées dans l'application) pour vérifier que le code retrouve des forces connues. Cela valide l'implémentation, **pas** la performance sur du sport réel : seul un backtest sur vos données réelles le fait.
 
 ## Données sportives
 

@@ -34,6 +34,7 @@ export default function MatchDetail() {
   const stats = useApi<Stat[]>(`/matches/${id}/statistics`);
   const odds = useApi<{ markets: Market[] }>(`/matches/${id}/odds/analysis`);
   const analysis = useApi<Analysis>(`/matches/${id}/analysis`);
+  const pred = useApi<Prediction>(`/matches/${id}/prediction`);
 
   if (match.loading) return <Loading what="données du match" />;
   if (match.error || !match.data) return <ErrorBox message={match.error ?? "Match introuvable."} />;
@@ -48,10 +49,7 @@ export default function MatchDetail() {
       <p className="mb-4 flex flex-wrap gap-2"><span className="badge">{m.status}</span><SourceBadge source={m.source} />
         {m.home_score !== null && <span className="badge">Score {m.home_score} – {m.away_score}</span>}</p>
 
-      <section className="card mb-4">
-        <h2 className="mb-2 font-medium">Prédiction</h2>
-        <p className="text-sm text-muted">Aucun modèle disponible : le moteur statistique n&apos;est pas encore construit (étape 5). Aucune probabilité n&apos;est affichée.</p>
-      </section>
+      <PredictionCard p={pred.data} loading={pred.loading} home={home} away={away} />
 
       <section className="card mb-4">
         <h2 className="mb-2 font-medium">Forme et confrontations directes</h2>
@@ -164,5 +162,50 @@ function FormTable({ rows }: { rows: [string, Form][] }) {
           </tr>))}</tbody>
       </table>
     </div>
+  );
+}
+
+type Prediction = {
+  available: boolean; reason?: string; limitations: string[]; value_note?: string;
+  model: { name: string; version: string }; training: { matches: number; home_team_matches: number; away_team_matches: number };
+  expected_goals?: { home: number; away: number };
+  probabilities?: { "1X2": Record<string, number>; DC: Record<string, number>; OU: Record<string, { over: number; under: number }>;
+    BTTS: Record<string, number>; exact_scores: { score: string; probability: number }[] };
+  value?: { bookmaker: string; market: string; selection: string; line: number | null; price: number; estimated_probability: number; edge: number; expected_value: number }[];
+};
+
+function Bar({ label, p }: { label: string; p: number }) {
+  return (
+    <div className="mb-1 text-sm"><div className="flex justify-between"><span>{label}</span><span className="font-mono">{pct(p)}</span></div>
+      <div className="h-1.5 rounded bg-border"><div className="h-1.5 rounded bg-accent" style={{ width: `${p * 100}%` }} /></div></div>
+  );
+}
+
+function PredictionCard({ p, loading, home, away }: { p?: Prediction; loading: boolean; home: string; away: string }) {
+  return (
+    <section className="card mb-4">
+      <h2 className="mb-1 font-medium">Prédiction statistique</h2>
+      {loading || !p ? <Loading what="calculs" /> : (<>
+        <p className="mb-3 text-xs text-muted">Modèle {p.model.name} v{p.model.version} · {p.training.matches} match(s) d&apos;historique dans la compétition
+          ({p.training.home_team_matches} pour {home}, {p.training.away_team_matches} pour {away}).</p>
+        {!p.available || !p.probabilities ? <p className="text-sm text-yellow-300">Prédiction non produite : {p.reason}</p> : (<>
+          <p className="mb-2 text-sm text-muted">Buts attendus : {home} {p.expected_goals!.home.toFixed(2)} – {p.expected_goals!.away.toFixed(2)} {away}</p>
+          <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
+            <div><Bar label={`Victoire ${home}`} p={p.probabilities["1X2"].home} /><Bar label="Match nul" p={p.probabilities["1X2"].draw} /><Bar label={`Victoire ${away}`} p={p.probabilities["1X2"].away} /></div>
+            <div><Bar label="Plus de 2,5 buts" p={p.probabilities.OU["2.5"].over} /><Bar label="Moins de 2,5 buts" p={p.probabilities.OU["2.5"].under} />
+              <Bar label="Les deux équipes marquent" p={p.probabilities.BTTS.yes} /></div>
+          </div>
+          <p className="mt-2 text-xs text-muted">Double chance : 1X {pct(p.probabilities.DC["1X"])} · 12 {pct(p.probabilities.DC["12"])} · X2 {pct(p.probabilities.DC["X2"])}.
+            Scores les plus probables (indicatif) : {p.probabilities.exact_scores.slice(0, 3).map((x) => `${x.score} (${pct(x.probability)})`).join(", ")}.</p>
+          {p.value && p.value.length > 0 && (
+            <table className="mt-3 w-full text-sm"><thead><tr className="text-left text-muted"><th>Cote saisie</th><th>Cote</th><th>Proba modèle</th><th>Écart</th><th>Valeur espérée</th></tr></thead>
+              <tbody>{p.value.map((v, i) => (<tr key={i} className="border-t border-border"><td className="py-1">{v.market} {v.selection}{v.line !== null ? ` ${v.line}` : ""}</td><td>{v.price}</td>
+                <td>{pct(v.estimated_probability)}</td><td>{(v.edge * 100).toFixed(1)} pt</td><td className={v.expected_value > 0 ? "text-accent" : ""}>{(v.expected_value * 100).toFixed(1)} %</td></tr>))}</tbody></table>)}
+          {p.value_note && p.value && p.value.length > 0 && <p className="mt-1 text-xs text-muted">{p.value_note}</p>}
+        </>)}
+        <details className="mt-3 text-xs text-muted"><summary className="cursor-pointer">Limites du modèle</summary>
+          <ul className="mt-1 list-disc pl-5">{p.limitations.map((l) => <li key={l}>{l}</li>)}</ul></details>
+      </>)}
+    </section>
   );
 }
