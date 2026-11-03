@@ -11,16 +11,21 @@ from sqlalchemy import (
     Index,
     String,
     Text,
+    UniqueConstraint,
     event,
+    func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.db.triggers import install as install_triggers
 from app.models.mixins import CreatedAtMixin, UTCDateTime
 
 
 class ModelVersion(CreatedAtMixin, Base):
     __tablename__ = "model_versions"
+    __table_args__ = (UniqueConstraint("name", "version", name="uq_model_versions_name_version"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(80))  # poisson, elo, logreg, xgboost...
@@ -37,6 +42,15 @@ class Prediction(CreatedAtMixin, Base):
     __tablename__ = "predictions"
     __table_args__ = (
         Index("ix_predictions_match", "match_id"),
+        Index(
+            "uq_predictions_slot",
+            "match_id",
+            "model_version_id",
+            "market",
+            "selection",
+            func.coalesce(text("line"), -1),
+            unique=True,
+        ),
         CheckConstraint("probability BETWEEN 0 AND 1", name="probability_range"),
         CheckConstraint("observed_odds IS NULL OR observed_odds > 1", name="observed_odds_gt_1"),
     )
@@ -83,3 +97,14 @@ class AnalysisHistory(CreatedAtMixin, Base):
 @event.listens_for(Prediction, "before_update")
 def _predictions_are_immutable(mapper, connection, target):
     raise ValueError("Une prédiction enregistrée ne peut pas être modifiée.")
+
+
+@event.listens_for(Prediction, "before_delete")
+@event.listens_for(PredictionResult, "before_update")
+@event.listens_for(PredictionResult, "before_delete")
+def _append_only(mapper, connection, target):
+    raise ValueError("Enregistrement en ajout seul : modification et suppression interdites.")
+
+
+install_triggers(Prediction.__table__)
+install_triggers(PredictionResult.__table__)

@@ -38,7 +38,7 @@
 `users`, `teams`, `competitions`, `matches`, `match_statistics`, `team_forms` (réservée ; la forme est pour l'instant calculée à la demande), `odds`, `predictions`, `prediction_results`, `analysis_history`, `api_providers`, `model_versions`.
 - Clés étrangères appliquées (SQLite : `PRAGMA foreign_keys=ON`).
 - Contraintes CHECK en base (migration 0002) : cote > 1, scores ≥ 0, possession 0–100, probabilité 0–1, équipes distinctes.
-- `predictions` : toute mise à jour est refusée par une garde ORM. **Limite connue** : la garde ne couvre pas le SQL brut ; un trigger SQL (SQLite + PostgreSQL) sera ajouté à l'étape 7, avec la règle « aucune création après le coup d'envoi ».
+- `predictions` : toute mise à jour est refusée par une garde ORM. Depuis la migration 0003, des déclencheurs SQL (SQLite + PostgreSQL) rendent `predictions` et `prediction_results` append-only même en SQL brut. La règle « aucune création après le coup d'envoi » est appliquée par le service (pas par la base) : un accès SQL direct pourrait insérer une ligne tardive.
 - Les clés API ne sont jamais stockées en base (variables d'environnement uniquement).
 
 ## Portabilité PostgreSQL
@@ -62,7 +62,7 @@ bcrypt, JWT signé (HS256) à expiration, `SECRET_KEY` obligatoire ≥ 32 car. e
 2. ✅ Base de données et backend (cotes, statistiques, administration, contraintes d'intégrité, tests SQLite + PostgreSQL)
 3. ✅ Interface et tableau de bord (12 pages, navigation mobile, test E2E)
 4. ✅ Gestion des données sportives (import CSV, forme/H2H sans fuite temporelle). Connecteurs API réels : reportés, en attente d'une clé (voir PROVIDERS.md)
-5. ◐ Moteur statistique — palier 1 fait : Poisson, Elo, métriques, backtest. Reporté (nécessite un historique réel) : régression logistique, XGBoost, recalibration (isotonique/Platt), corners, mi-temps. Les prédictions ne sont pas encore enregistrées (étape 7)
+5. ◐ Moteur statistique — palier 1 fait : Poisson, Elo, métriques, backtest. Reporté (nécessite un historique réel) : régression logistique, XGBoost, recalibration (isotonique/Platt), corners, mi-temps. 
 6. Assistant conversationnel (interface LLM débranchée par défaut)
-7. Historique et évaluation (Brier, Log Loss, ROI)
+7. ✅ Historique et évaluation (enregistrement immuable par déclencheurs SQL, règlement, Brier/Log Loss/ROI) (Brier, Log Loss, ROI)
 8. Tests, sécurisation, déploiement

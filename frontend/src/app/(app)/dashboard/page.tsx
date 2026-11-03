@@ -9,6 +9,7 @@ export default function Dashboard() {
   const cat = useCatalog();
   const today = useApi<Match[]>(`/matches?date_from=${encodeURIComponent(dayStart(0))}&date_to=${encodeURIComponent(dayStart(1))}`);
   const tomorrow = useApi<Match[]>(`/matches?date_from=${encodeURIComponent(dayStart(1))}&date_to=${encodeURIComponent(dayStart(2))}`);
+  const perf = useApi<{ overall: { settled: number; reliable: boolean; hit_rate?: number }; pending_predictions: number }>("/performance");
   const err = today.error ?? tomorrow.error ?? cat.error;
 
   return (
@@ -33,7 +34,9 @@ export default function Dashboard() {
         <div className="card"><h2 className="font-medium">Dernières analyses</h2>
           <p className="mt-2 text-sm text-muted">Aucune analyse : le moteur prédictif n&apos;est pas encore construit (étape 5).</p></div>
         <div className="card"><h2 className="font-medium">Performances de l&apos;IA</h2>
-          <p className="mt-2 text-sm text-muted">Aucune prédiction enregistrée, donc aucune statistique de performance (étape 7).</p></div>
+          {!perf.data || perf.data.overall.settled === 0 ? <p className="mt-2 text-sm text-muted">Aucun événement réglé{perf.data ? ` (${perf.data.pending_predictions} prédiction(s) en attente)` : ""}.</p> :
+            <p className="mt-2 text-sm">{perf.data.overall.settled} événement(s) réglé(s), réussite {((perf.data.overall.hit_rate ?? 0) * 100).toFixed(1)} %.
+              {!perf.data.overall.reliable && <span className="text-yellow-300"> Échantillon trop petit pour conclure.</span>} <Link className="text-accent" href="/performance">Détails</Link></p>}</div>
       </div>
     </>
   );

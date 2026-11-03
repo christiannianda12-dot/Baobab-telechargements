@@ -4,7 +4,7 @@
 
 Plateforme d'analyse et de prédiction sportive, **locale d'abord**, sans dépendance à Supabase ni à un service payant.
 
-> **État : étape 5 (moteur statistique, premier palier).** Aucune prédiction n'est encore produite. Le moteur statistique sera construit à l'étape 5, après validation.
+> **État : étape 7 (historique et évaluation) ; étape 6 (assistant) non commencée.** Aucune prédiction n'est encore produite. Le moteur statistique sera construit à l'étape 5, après validation.
 
 ## Stack
 
@@ -67,9 +67,17 @@ cd frontend && npm install && npm run dev
 | Cotes | `POST/GET /matches/{id}/odds`, `GET /matches/{id}/odds/analysis`, `POST /odds/calculate` |
 | Import et analyse | `POST /import/matches` (CSV, `dry_run`), `GET /matches/{id}/analysis` (forme, domicile/extérieur, confrontations directes) |
 | Moteur | `GET /matches/{id}/prediction`, `GET /competitions/{id}/elo`, `GET /competitions/{id}/backtest` |
+| Historique | `POST /matches/{id}/predictions` (enregistrement immuable), `GET /predictions`, `POST /predictions/settle`, `GET /performance` |
 | Admin | `GET /admin/users`, `PATCH /admin/users/{id}`, `POST /admin/providers/sync`, `GET /admin/providers` |
 
 Les cotes n'existent que si elles ont été saisies. L'analyse n'applique la correction de marge qu'aux marchés **complets** (1X2, Over/Under, BTTS).
+
+## Historique vérifiable et performance
+
+- **Enregistrement** : une prédiction (1X2, plus/moins 2,5, BTTS) ne peut être enregistrée qu'**avant le coup d'envoi**, **une seule fois** par match et par version de modèle, avec la meilleure cote saisie à cet instant.
+- **Immuabilité garantie par la base** : des déclencheurs SQL (SQLite et PostgreSQL) refusent tout `UPDATE`/`DELETE` sur `predictions` et `prediction_results`, même en SQL brut. Une contrainte d'unicité empêche les doublons.
+- **Règlement automatique** quand un match passe à « terminé » (ou « annulé » : issues annulées, exclues des statistiques) ; idempotent.
+- **Performance** : taux de réussite (intervalle de Wilson 95 %), Brier Score, Log Loss, ROI théorique (issue favorite avec cote saisie) et ROI des paris à valeur positive, par marché et par championnat. Chaque tableau signale « peu fiable » sous 100 événements réglés.
 
 ## Moteur statistique (palier 1)
 

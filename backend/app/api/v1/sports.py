@@ -16,6 +16,7 @@ from app.schemas.sports import (
     TeamCreate,
     TeamOut,
 )
+from app.services.tracking import settle_match
 
 router = APIRouter(tags=["données sportives (mode manuel)"])
 
@@ -102,4 +103,5 @@ def update_match(match_id: int, payload: MatchUpdate, db: DbDep, _: CurrentUser)
         db.rollback()
         raise HTTPException(422, "Les deux scores doivent être renseignés ensemble.")
     db.commit()
+    settle_match(db, match)  # règle les prédictions enregistrées si le match est terminé/annulé
     return match

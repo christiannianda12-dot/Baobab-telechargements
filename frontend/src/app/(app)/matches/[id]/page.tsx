@@ -35,6 +35,7 @@ export default function MatchDetail() {
   const odds = useApi<{ markets: Market[] }>(`/matches/${id}/odds/analysis`);
   const analysis = useApi<Analysis>(`/matches/${id}/analysis`);
   const pred = useApi<Prediction>(`/matches/${id}/prediction`);
+  const recorded = useApi<{ id: number; created_at: string; outcome: string | null }[]>(`/predictions?match_id=${id}`);
 
   if (match.loading) return <Loading what="données du match" />;
   if (match.error || !match.data) return <ErrorBox message={match.error ?? "Match introuvable."} />;
@@ -50,6 +51,7 @@ export default function MatchDetail() {
         {m.home_score !== null && <span className="badge">Score {m.home_score} – {m.away_score}</span>}</p>
 
       <PredictionCard p={pred.data} loading={pred.loading} home={home} away={away} />
+      <RecordBox matchId={m.id} kickoff={m.kickoff_at} available={!!pred.data?.available} rows={recorded.data} onDone={recorded.reload} />
 
       <section className="card mb-4">
         <h2 className="mb-2 font-medium">Forme et confrontations directes</h2>
@@ -207,5 +209,28 @@ function PredictionCard({ p, loading, home, away }: { p?: Prediction; loading: b
           <ul className="mt-1 list-disc pl-5">{p.limitations.map((l) => <li key={l}>{l}</li>)}</ul></details>
       </>)}
     </section>
+  );
+}
+
+function RecordBox({ matchId, kickoff, available, rows, onDone }: { matchId: number; kickoff: string; available: boolean; rows?: { created_at: string; outcome: string | null }[]; onDone: () => void }) {
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  if (rows === undefined) return null;
+  if (rows.length > 0) {
+    const done = rows.filter((r) => r.outcome).length;
+    return <p className="card mb-4 text-sm">Prédiction enregistrée le {new Date(rows[0].created_at).toLocaleString("fr-FR")} — <b>immuable</b>. {done === rows.length ? "Toutes réglées." : `${rows.length - done} issue(s) en attente de résultat.`}</p>;
+  }
+  if (!available || new Date(kickoff) <= new Date()) return <p className="card mb-4 text-xs text-muted">Enregistrement impossible : {new Date(kickoff) <= new Date() ? "le match a commencé." : "prédiction indisponible."}</p>;
+  async function go() {
+    setBusy(true); setErr(null);
+    try { await api(`/matches/${matchId}/predictions`, { method: "POST" }); onDone(); } catch (e) { setErr((e as Error).message); }
+    setBusy(false);
+  }
+  return (
+    <div className="card mb-4">
+      <button className="btn" disabled={busy} onClick={go}>Enregistrer cette prédiction</button>
+      <p className="mt-2 text-xs text-muted">Horodatée et définitive : elle ne pourra plus être modifiée ni supprimée, et sera comparée au résultat réel.</p>
+      {err && <ErrorBox message={err} />}
+    </div>
   );
 }
