@@ -31,6 +31,12 @@ Cliquez sur **S'inscrire**. **Le premier compte créé devient administrateur.**
 2. Dans l'application : **Administration → Import CSV**. Cliquez sur **« Vérifier sans importer »** puis **« Importer »**, un fichier à la fois (commencez par la saison la plus ancienne).
 3. Ouvrez la page **Fiabilité** : elle compare le modèle au marché sur votre historique.
 
+## 5 bis. Ajouter d'autres championnats (en un clic)
+1. Menu **Centre de données** → onglet **Championnats**.
+2. Cliquez sur **Ajouter** à côté d'un championnat (Ligue 1, La Liga, Serie A, Bundesliga, Brésil, USA…), confirmez : l'application télécharge elle-même les 3 dernières saisons (connexion Internet nécessaire).
+3. Pour garder les données à jour : **« Tout mettre à jour »** (résultats récents + prochains matchs avec cotes). Une fois par semaine suffit.
+4. Après un import, jetez un œil à l'onglet **Qualité** : il liste ce qui mérite vérification. L'onglet **Équipes** propose de fusionner les doublons, et **Historique des imports** permet d'annuler un import erroné.
+
 ## 6. Utiliser depuis le téléphone
 1. Le téléphone doit être connecté au **même Wi-Fi** que le PC, qui doit être allumé.
 2. Notez l'adresse IPv4 du PC (affichée à la fin du démarrage, par exemple `192.168.1.25`).

@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { api, API_URL, type User } from "@/lib/api";
+import Link from "next/link";
+import { api, type User } from "@/lib/api";
+import { useConfirm, useToast } from "@/components/kit";
 import { useApi } from "@/lib/hooks";
 import { Empty, ErrorBox, Loading, PageTitle, useCatalog } from "@/components/ui";
 
@@ -9,15 +11,19 @@ export default function Admin() {
   const me = useApi<User>("/auth/me");
   if (me.loading) return <Loading />;
   if (me.data?.role !== "admin") return <Empty>Accès réservé aux administrateurs.</Empty>;
-  return (<><PageTitle title="Administration" /><Users meId={me.data.id} /><CsvImport /><ManualEntry /></>);
+  return (<><PageTitle title="Administration" /><Link href="/data" className="card mb-4 block hover:border-accent"><h2 className="font-medium">⇩ Centre de données</h2><p className="mt-1 text-sm text-muted">Ajouter des championnats, importer des fichiers, annuler un import, contrôler la qualité, fusionner les doublons.</p></Link>
+      <Users meId={me.data.id} /><ManualEntry /></>);
 }
 
 function Users({ meId }: { meId: number }) {
   const users = useApi<User[]>("/admin/users");
   const [err, setErr] = useState<string | null>(null);
-  async function patch(id: number, json: object) {
+  const confirm = useConfirm();
+  const toast = useToast();
+  async function patch(id: number, json: object, ask: string) {
+    if (!(await confirm({ title: ask, danger: true }))) return;
     setErr(null);
-    try { await api(`/admin/users/${id}`, { method: "PATCH", json }); users.reload(); } catch (x) { setErr((x as Error).message); }
+    try { await api(`/admin/users/${id}`, { method: "PATCH", json }); toast("ok", "Modification enregistrée."); users.reload(); } catch (x) { setErr((x as Error).message); toast("error", (x as Error).message); }
   }
   return (
     <section className="card mb-4">
@@ -30,8 +36,8 @@ function Users({ meId }: { meId: number }) {
               <span className="min-w-0 flex-1 truncate">{u.display_name} <span className="text-muted">{u.email}</span></span>
               <span className="badge">{u.role}</span>{!u.is_active && <span className="badge">désactivé</span>}
               {u.id !== meId && <>
-                <button className="btn-ghost" onClick={() => patch(u.id, { role: u.role === "admin" ? "user" : "admin" })}>{u.role === "admin" ? "Rétrograder" : "Promouvoir"}</button>
-                <button className="btn-ghost" onClick={() => patch(u.id, { is_active: !u.is_active })}>{u.is_active ? "Désactiver" : "Réactiver"}</button></>}
+                <button className="btn-ghost" onClick={() => patch(u.id, { role: u.role === "admin" ? "user" : "admin" }, u.role === "admin" ? `Retirer les droits d'administrateur à ${u.display_name} ?` : `Donner les droits d'administrateur à ${u.display_name} ?`)}>{u.role === "admin" ? "Rétrograder" : "Promouvoir"}</button>
+                <button className="btn-ghost" onClick={() => patch(u.id, { is_active: !u.is_active }, u.is_active ? `Désactiver le compte de ${u.display_name} ?` : `Réactiver le compte de ${u.display_name} ?`)}>{u.is_active ? "Désactiver" : "Réactiver"}</button></>}
             </li>))}
         </ul>)}
     </section>
@@ -68,54 +74,3 @@ function ManualEntry() {
   );
 }
 
-type Report = { rows: number; created_matches: number; skipped_duplicates: number; created_teams: number; created_competitions: number; dry_run: boolean };
-
-function CsvImport() {
-  const [busy, setBusy] = useState(false);
-  const [report, setReport] = useState<Report | null>(null);
-  const [errors, setErrors] = useState<{ line: number; error: string }[]>([]);
-  const [fatal, setFatal] = useState<string | null>(null);
-
-  async function run(e: React.FormEvent<HTMLFormElement>, dry: boolean) {
-    e.preventDefault();
-    const file = new FormData(e.currentTarget.form ?? e.currentTarget).get("file");
-    if (!(file instanceof File) || !file.size) return setFatal("Choisissez un fichier CSV.");
-    setBusy(true); setReport(null); setErrors([]); setFatal(null);
-    const body = new FormData();
-    body.append("file", file);
-    try {
-      const res = await fetch(`${API_URL}/api/v1/import/matches?dry_run=${dry}`, { method: "POST", body, credentials: "include" });
-      const j = await res.json();
-      if (res.ok) setReport(j);
-      else if (j.detail?.errors) setErrors(j.detail.errors);
-      else setFatal(typeof j.detail === "string" ? j.detail : "Import refusé.");
-    } catch { setFatal("API injoignable."); }
-    setBusy(false);
-  }
-
-  return (
-    <section className="card mb-4">
-      <h2 className="mb-1 font-medium">Import CSV de matchs terminés</h2>
-      <p className="mb-3 text-xs text-muted">
-        Tout-ou-rien : une seule ligne invalide annule l&apos;import. Cellule vide = donnée absente (jamais 0). Équipes et compétitions manquantes sont créées.{" "}
-        <a className="text-accent underline" href="/modele-matchs.csv" download>Télécharger le modèle (en-têtes)</a>
-      </p>
-      <form className="flex flex-wrap items-center gap-2">
-        <input name="file" type="file" accept=".csv,text/csv" className="input max-w-xs" aria-label="Fichier CSV" />
-        <button type="button" className="btn-ghost" disabled={busy} onClick={(e) => run(e as never, true)}>Vérifier sans importer</button>
-        <button type="button" className="btn" disabled={busy} onClick={(e) => run(e as never, false)}>Importer</button>
-      </form>
-      {fatal && <div className="mt-3"><ErrorBox message={fatal} /></div>}
-      {report && (
-        <p className="mt-3 text-sm text-accent">
-          {report.dry_run ? "Vérification réussie (rien écrit) : " : "Import terminé : "}
-          {report.created_matches} match(s), {report.created_teams} équipe(s), {report.created_competitions} compétition(s) créés ; {report.skipped_duplicates} doublon(s) ignoré(s).
-        </p>
-      )}
-      {errors.length > 0 && (
-        <div className="mt-3"><ErrorBox message={`${errors.length} erreur(s) — aucune ligne importée.`} />
-          <ul className="mt-2 max-h-48 overflow-auto text-xs text-red-300">{errors.slice(0, 50).map((x) => <li key={x.line}>Ligne {x.line} : {x.error}</li>)}</ul></div>
-      )}
-    </section>
-  );
-}

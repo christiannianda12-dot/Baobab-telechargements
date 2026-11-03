@@ -19,7 +19,7 @@ const API = "http://localhost:8000/api/v1";
   await p.goto("http://localhost:3000/performance"); await p.waitForSelector("text=Aucun événement réglé"); console.log("1 performance vide honnête OK");
   await p.goto(`http://localhost:3000/matches/${m.id}`); await p.waitForSelector("text=Buts attendus");
   await p.click("button:has-text('Enregistrer cette prédiction')"); await p.waitForSelector("text=immuable"); console.log("2 prédiction enregistrée OK");
-  await p.selectOption("[name=status]", "finished"); await p.fill("[name=h]", "3"); await p.fill("[name=a]", "0"); await p.click("button:has-text('Enregistrer')");
+  await p.click("button[role=tab]:has-text('Résultat')"); await p.selectOption("[name=status]", "finished"); await p.fill("[name=h]", "3"); await p.fill("[name=a]", "0"); await p.click("form button:text-is('Enregistrer')"); await p.click("[role=dialog] button:has-text('Enregistrer le résultat')");
   await p.goto("http://localhost:3000/history"); await p.waitForSelector("text=Gagné"); await p.waitForSelector("text=Perdu");
   console.log("3 historique + règlement automatique OK");
   await p.goto("http://localhost:3000/performance"); await p.waitForSelector("text=Seulement 3 événement(s)"); await p.waitForSelector("text=Par type de marché");

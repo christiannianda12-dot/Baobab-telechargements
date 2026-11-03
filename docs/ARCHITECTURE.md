@@ -34,6 +34,9 @@
 
 À venir (étapes suivantes) : `backend/app/ml/` : régression logistique, XGBoost, recalibration (Poisson, Elo, métriques et backtest existent), `backend/app/services/` (cotes, combinés, performance), `backend/app/assistant/` (interface LLM débranchée par défaut), pages frontend.
 
+## Version 2 (données)
+Tables ajoutées (migration 0004) : `followed_leagues`, `team_aliases`, `import_batches` ; `matches.import_batch_id`. Services : `sources` (catalogue + téléchargement, domaine unique), `csv_import`/`csv_adapters` (3 formats football-data), `dataops` (annulation, fusion, qualité), `explorer` (classements, fiche équipe, recherche).
+
 ## Modèle de données (12 tables)
 `users`, `teams`, `competitions`, `matches`, `match_statistics`, `team_forms` (réservée ; la forme est pour l'instant calculée à la demande), `odds`, `predictions`, `prediction_results`, `analysis_history`, `api_providers`, `model_versions`.
 - Clés étrangères appliquées (SQLite : `PRAGMA foreign_keys=ON`).

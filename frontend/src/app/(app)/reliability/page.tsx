@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { useApi } from "@/lib/hooks";
 import { Empty, ErrorBox, Loading, PageTitle, useCatalog } from "@/components/ui";
+import { CalibrationChart, LineChart } from "@/components/kit";
 
 type Row = { brier: number; log_loss: number };
+type Bin = { mean_predicted: number; observed_frequency: number; n: number };
 type Paired = { mean: number; se: number; z: number };
 type Bench = {
   available: boolean; reason?: string; matches?: number; reliable?: boolean; model: string; history_matches: number;
@@ -13,6 +15,7 @@ type Bench = {
   by_season?: { season: string; matches: number; model_brier: number; market_brier: number; baseline_brier: number }[];
   value_bets?: { min_expected_value: number; bets: number; wins: number; profit_units: number; roi: number | null }[];
   verdict?: string; notes?: string[];
+  calibration?: { model: Bin[]; market: Bin[] }; cumulative?: { date: string; brier_gap: number; profit: number }[];
 };
 const n4 = (x: number) => x.toFixed(4);
 const pc = (x: number | null) => (x == null ? "—" : `${(x * 100).toFixed(1)} %`);
@@ -56,6 +59,16 @@ export default function Reliability() {
           <table className="w-full min-w-[26rem] text-sm"><thead><tr className="text-left text-muted"><th>Seuil de valeur</th><th>Paris</th><th>Gagnés</th><th>Bilan</th><th>Rendement</th></tr></thead>
             <tbody>{data.value_bets!.map((v) => (<tr key={v.min_expected_value} className="border-t border-border"><td className="py-1">&gt; {(v.min_expected_value * 100).toFixed(0)} %</td><td>{v.bets}</td><td>{v.wins}</td>
               <td className={v.profit_units < 0 ? "text-red-300" : "text-accent"}>{v.profit_units.toFixed(1)}</td><td className={(v.roi ?? 0) < 0 ? "text-red-300" : "text-accent"}>{pc(v.roi)}</td></tr>))}</tbody></table></section>
+
+        {data.calibration && data.cumulative && (
+          <div className="mb-4 grid gap-4 md:grid-cols-2">
+            <section className="card"><h2 className="mb-1 font-medium">Calibration (victoire à domicile)</h2><p className="mb-2 text-xs text-muted">Quand le modèle annonce 60 %, l&apos;événement arrive-t-il 60 % du temps ? Plus la courbe colle à la diagonale, mieux c&apos;est.</p>
+              <CalibrationChart model={data.calibration.model} market={data.calibration.market} /></section>
+            <section className="card"><h2 className="mb-1 font-medium">Écart cumulé au marché</h2><p className="mb-2 text-xs text-muted">Somme des différences de Brier (modèle − marché) : une courbe qui monte = le modèle perd du terrain sur le marché.</p>
+              <LineChart xLabels={[data.cumulative[0].date, data.cumulative.at(-1)!.date]} yFormat={(v) => v.toFixed(1)} series={[{ name: "Écart cumulé (Brier)", color: "#f59e0b", points: data.cumulative.map((c, i) => ({ x: i, y: c.brier_gap })) }]} /></section>
+            <section className="card md:col-span-2"><h2 className="mb-1 font-medium">Bilan cumulé des paris simulés sur les écarts du modèle</h2><p className="mb-2 text-xs text-muted">En unités de mise, aux cotes de clôture. Une courbe qui descend = ces paris auraient perdu de l&apos;argent.</p>
+              <LineChart xLabels={[data.cumulative[0].date, data.cumulative.at(-1)!.date]} yFormat={(v) => v.toFixed(0)} series={[{ name: "Bilan (unités)", color: "#ef4444", points: data.cumulative.map((c, i) => ({ x: i, y: c.profit })) }]} /></section>
+          </div>)}
 
         <ul className="list-disc space-y-1 pl-5 text-xs text-muted">{data.notes?.map((t) => <li key={t}>{t}</li>)}
           <li>Modèle : {data.model}, entraîné sur {data.history_matches} matchs (toutes saisons du championnat, les plus récents pesant davantage).</li></ul>

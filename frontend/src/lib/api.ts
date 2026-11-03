@@ -54,3 +54,17 @@ export async function logout(): Promise<void> {
   } catch {}
   setToken(null);
 }
+
+/** Envoi de fichier (multipart). Lève ApiError avec le détail structuré renvoyé par l'API (erreurs par ligne). */
+export async function uploadFile<T>(path: string, file: File): Promise<T> {
+  const body = new FormData();
+  body.append("file", file);
+  const res = await fetch(`${API_URL}/api/v1${path}`, { method: "POST", body, credentials: "include", cache: "no-store" });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new ApiError(res.status, typeof j.detail === "string" ? j.detail : j.detail?.message ?? `Erreur ${res.status}`);
+    (err as ApiError & { detail?: unknown }).detail = j.detail;
+    throw err;
+  }
+  return j as T;
+}

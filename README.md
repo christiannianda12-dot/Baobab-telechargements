@@ -4,7 +4,7 @@
 
 Plateforme d'analyse et de prédiction sportive, **locale d'abord**, sans dépendance à Supabase ni à un service payant.
 
-> **État : les 8 étapes du plan sont réalisées.** Évolutions restantes (dépendent d'éléments extérieurs) : modèles avancés (historique réel), connecteurs API (clés), connecteur LLM (clé). Aucune prédiction n'est encore produite. Le moteur statistique sera construit à l'étape 5, après validation.
+> **État : les 8 étapes du plan sont réalisées, plus la version 2 (tous les championnats, outils anti-erreurs, interface modernisée).** Évolutions restantes (dépendent d'éléments extérieurs) : modèles avancés (historique réel), connecteurs API (clés), connecteur LLM (clé). Aucune prédiction n'est encore produite. Le moteur statistique sera construit à l'étape 5, après validation.
 
 ## Stack
 
@@ -72,6 +72,13 @@ cd frontend && npm install && npm run dev
 | Admin | `GET /admin/users`, `PATCH /admin/users/{id}`, `POST /admin/providers/sync`, `GET /admin/providers` |
 
 Les cotes n'existent que si elles ont été saisies. L'analyse n'applique la correction de marge qu'aux marchés **complets** (1X2, Over/Under, BTTS).
+
+## Version 2 : tous les championnats et outils anti-erreurs
+
+- **38 championnats en un clic** (Centre de données) : 22 principaux (Angleterre à Grèce) + 16 autres pays (Brésil, Argentine, USA, Japon…), téléchargés depuis football-data.co.uk par l'application elle-même, puis mis à jour d'un clic (résultats + **prochains matchs avec cotes**). Un match programmé reçoit son résultat et **règle automatiquement les prédictions** enregistrées.
+- **Contre les erreurs** : import tout-ou-rien avec vérification à blanc, **annulation d'un import**, **fusion des équipes en doublon** (« Man Utd » / « Manchester United », avec mémoire des alias), avertissement dès qu'un nom ressemble à une équipe existante, **rapport de qualité** (résultats manquants, saisons incomplètes, scores aberrants, couverture des cotes), confirmation avant toute action destructrice, notifications claires, score manquant refusé pour un match passé.
+- **Interface** : classements par championnat, fiche équipe (Elo, forme, résultats), explorateur de matchs filtrable et paginé, recherche rapide (**Ctrl+K**), onglets sur la fiche match, graphiques (calibration, écart cumulé au marché, bilan des paris simulés).
+- **À savoir** : le téléchargement automatique n'a pas pu être testé contre le vrai site depuis l'environnement de développement (accès réseau restreint) ; il est testé avec un faux serveur. En cas de format inattendu, l'import est refusé en bloc avec un message précis, sans rien écrire.
 
 ## Fiabilité mesurée (résultats sur 1 146 matchs de Premier League)
 

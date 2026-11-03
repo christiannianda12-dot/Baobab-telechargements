@@ -9,20 +9,21 @@ const buf = (t) => ({ name: "m.csv", mimeType: "text/csv", buffer: Buffer.from(t
   await p.goto("http://localhost:3000/register");
   await p.fill("[name=display_name]", "Owner"); await p.fill("[name=email]", "owner@example.com"); await p.fill("[name=password]", "motdepasse-solide-1");
   await p.click("button:has-text(\"S'inscrire\")"); await p.waitForURL("**/dashboard");
-  await p.goto("http://localhost:3000/admin"); await p.waitForSelector("text=Import CSV");
-  await p.setInputFiles("[name=file]", buf(BAD)); await p.click("button:text-is('Importer')");
-  await p.waitForSelector("text=Ligne 3"); await p.waitForSelector("text=aucune ligne importée"); console.log("1 CSV invalide refusé, ligne 3 signalée OK");
-  await p.setInputFiles("[name=file]", buf(GOOD)); await p.click("button:has-text('Vérifier sans importer')");
-  await p.waitForSelector("text=Vérification réussie (rien écrit) : 3 match(s)"); console.log("2 vérification à blanc OK");
-  await p.click("button:text-is('Importer')"); await p.waitForSelector("text=Import terminé : 3 match(s), 3 équipe(s)"); console.log("3 import OK");
-  await p.click("button:text-is('Importer')"); await p.waitForSelector("text=0 match(s), 0 équipe(s)"); await p.waitForSelector("text=3 doublon(s)"); console.log("4 réimport idempotent OK");
+  await p.goto("http://localhost:3000/data"); await p.click("button[role=tab]:has-text('Importer')"); await p.waitForSelector("text=Tout-ou-rien");
+  await p.setInputFiles("input[type=file]", buf(BAD)); await p.click("button:has-text('2. Importer')");
+  await p.waitForSelector("text=refusé"); await p.waitForSelector("text=Ligne 3"); console.log("1 CSV invalide refusé, ligne 3 signalée OK");
+  await p.setInputFiles("input[type=file]", buf(GOOD)); await p.click("button:has-text('1. Vérifier')");
+  await p.waitForSelector("text=valide (non importé)"); console.log("2 vérification à blanc OK");
+  await p.click("button:has-text('2. Importer')"); await p.waitForSelector("text=3 créé(s)"); await p.waitForSelector("text=importé"); console.log("3 import OK");
+  await p.click("button:has-text('2. Importer')"); await p.waitForSelector("text=3 déjà connu(s)"); console.log("4 réimport idempotent OK");
+  await p.click("button[role=tab]:has-text('Historique')"); await p.waitForSelector("td:has-text('GOOD') , td:has-text('m.csv')"); console.log("4b import tracé dans l'historique OK");
   // match programmé créé via l'API (la saisie UI est déjà couverte par e2e_smoke)
   const tok = (await (await fetch("http://localhost:8000/api/v1/auth/login", { method: "POST", body: new URLSearchParams({ username: "owner@example.com", password: "motdepasse-solide-1" }) })).json()).access_token;
   const get = async (u) => (await fetch("http://localhost:8000/api/v1" + u)).json();
   const teams = Object.fromEntries((await get("/teams")).map((t) => [t.name, t.id])); const comp = (await get("/competitions"))[0].id;
   const m = await (await fetch("http://localhost:8000/api/v1/matches", { method: "POST", headers: { Authorization: "Bearer " + tok, "content-type": "application/json" },
     body: JSON.stringify({ competition_id: comp, home_team_id: teams.Alpha, away_team_id: teams.Beta, kickoff_at: "2026-03-01T20:00:00Z" }) })).json();
-  await p.goto(`http://localhost:3000/matches/${m.id}`); await p.waitForSelector("text=Forme et confrontations directes");
+  await p.goto(`http://localhost:3000/matches/${m.id}`); await p.click("button[role=tab]:has-text('Forme')"); await p.waitForSelector("text=Forme et confrontations directes");
   await p.waitForSelector("text=Alpha (domicile)"); await p.waitForSelector("text=Confrontations directes : 2 match(s)");
   await p.waitForSelector("text=minimum conseillé");
   const row = await p.locator("tr:has-text('Alpha (tous)')").innerText(); console.log("5 forme affichée :", row.replace(/\s+/g, " "));

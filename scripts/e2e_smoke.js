@@ -10,7 +10,7 @@ const assert = require("assert");
   await p.goto("http://localhost:3000/register");
   await p.fill("[name=display_name]", "Owner"); await p.fill("[name=email]", "owner@example.com"); await p.fill("[name=password]", "motdepasse-solide-1");
   await p.click("button:has-text(\"S'inscrire\")"); await p.waitForURL("**/dashboard");
-  await p.waitForSelector("text=Aucun match enregistré aujourd");
+  await p.waitForSelector("text=Commencez ici");
   console.log("2 inscription + connexion + dashboard vide honnête OK");
   const leak = await p.evaluate(() => ({ cookie: document.cookie, ls: JSON.stringify(Object.entries(localStorage)) }));
   if (/predix_session=|eyJ/.test(leak.cookie + leak.ls)) throw new Error("jeton lisible par le JavaScript : " + JSON.stringify(leak));
@@ -26,14 +26,14 @@ const assert = require("assert");
   const d = new Date(); d.setHours(23, 30, 0, 0); const loc = new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,16);
   await p.fill("[name=k]", loc); await p.click("button:has-text('Ajouter le match')"); await p.waitForSelector("text=Match ajouté");
   console.log("3 saisie manuelle équipes/compétition/match OK");
-  await p.goto("http://localhost:3000/matches"); await p.click("text=Alpha FC"); await p.waitForSelector("text=Aucune cote saisie");
+  await p.goto("http://localhost:3000/matches"); await p.click("text=Alpha FC"); await p.click("button[role=tab]:has-text('Cotes')"); await p.waitForSelector("text=Aucune cote saisie");
   for (const [sel, price] of [["home","2.10"],["draw","3.40"],["away","3.60"]]) {
     await p.selectOption("[name=selection]", sel); await p.fill("[name=price]", price); await p.click("button:has-text('Ajouter la cote')");
     await p.waitForSelector(`td:text-is("${Number(price)}")`);
   }
   await p.waitForSelector("text=marge 4.8 %"); await p.waitForSelector("text=45.4 %");
   console.log("4 cotes + marge 4.8 % + proba corrigée 45.4 % OK");
-  await p.waitForSelector("text=Prédiction non produite");
+  await p.click("button[role=tab]:has-text('Prédiction')"); await p.waitForSelector("text=Prédiction non produite");
   for (const path of ["assistant","combos","history","performance","calendar","settings"]) { await p.goto("http://localhost:3000/"+path); await p.waitForSelector("h1"); }
   await p.goto("http://localhost:3000/settings"); await p.waitForSelector("text=API et base de données opérationnelles");
   await p.screenshot({ path: "/tmp/settings-mobile.png" });

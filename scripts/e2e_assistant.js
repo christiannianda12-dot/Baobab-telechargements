@@ -17,7 +17,7 @@ const API = "http://localhost:8000/api/v1";
   await p.goto("http://localhost:3000/assistant"); await p.waitForSelector("text=Mode règles");
   console.log("1 statut : mode règles affiché, aucun LLM prétendu OK");
   await p.fill("[aria-label='Votre message']", "Analyse Equipe 1 contre Equipe 2"); await p.click("button:has-text('Envoyer')");
-  await p.waitForSelector("text=Modèle poisson v1.0.0"); await p.waitForSelector("text=Limites :"); console.log("2 analyse de match via l'assistant OK");
+  await p.waitForSelector("text=/Modèle poisson v1\\.\\d+\\.\\d+/"); await p.waitForSelector("text=Limites :"); console.log("2 analyse de match via l'assistant OK");
   await p.fill("[aria-label='Votre message']", "Analyse Arsenal contre Chelsea"); await p.click("button:has-text('Envoyer')");
   await p.waitForSelector("text=pas identifié d'équipe connue"); console.log("3 équipe inconnue : refus honnête OK");
   await p.fill("[aria-label='Votre message']", "Construis un combiné de trois rencontres en privilégiant les probabilités élevées"); await p.click("button:has-text('Envoyer')");

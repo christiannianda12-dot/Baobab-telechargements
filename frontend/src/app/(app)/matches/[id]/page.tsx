@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useParams } from "next/navigation";
+import { Tabs, useConfirm, useToast } from "@/components/kit";
 import { useState } from "react";
 import { api, type Match } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
@@ -37,6 +39,8 @@ export default function MatchDetail() {
   const pred = useApi<Prediction>(`/matches/${id}/prediction`);
   const recorded = useApi<{ id: number; created_at: string; outcome: string | null }[]>(`/predictions?match_id=${id}`);
 
+  const [tab, setTab] = useState<"pred" | "form" | "odds" | "stats" | "result">("pred");
+
   if (match.loading) return <Loading what="données du match" />;
   if (match.error || !match.data) return <ErrorBox message={match.error ?? "Match introuvable."} />;
   const m = match.data;
@@ -48,11 +52,16 @@ export default function MatchDetail() {
       <PageTitle title={`${home} – ${away}`}
         subtitle={`${cat.comp.get(m.competition_id) ?? ""} · ${new Date(m.kickoff_at).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" })}`} />
       <p className="mb-4 flex flex-wrap gap-2"><span className="badge">{m.status}</span><SourceBadge source={m.source} />
-        {m.home_score !== null && <span className="badge">Score {m.home_score} – {m.away_score}</span>}</p>
+        {m.home_score !== null && <span className="badge">Score {m.home_score} – {m.away_score}</span>}
+        <Link className="text-sm text-accent underline" href={`/teams/${m.home_team_id}`}>Fiche {home}</Link>
+        <Link className="text-sm text-accent underline" href={`/teams/${m.away_team_id}`}>Fiche {away}</Link></p>
+      <Tabs value={tab} onChange={setTab} tabs={[{ id: "pred", label: "Prédiction" }, { id: "form", label: "Forme" }, { id: "odds", label: "Cotes", badge: odds.data?.markets.length || undefined }, { id: "stats", label: "Statistiques" }, { id: "result", label: "Résultat" }]} />
 
+      {tab === "pred" && (<>
       <PredictionCard p={pred.data} loading={pred.loading} home={home} away={away} />
       <RecordBox matchId={m.id} kickoff={m.kickoff_at} available={!!pred.data?.available} rows={recorded.data} onDone={recorded.reload} />
-
+      </>)}
+      {tab === "form" && (<>
       <section className="card mb-4">
         <h2 className="mb-2 font-medium">Forme et confrontations directes</h2>
         <p className="mb-2 text-xs text-muted">Calculées uniquement sur les matchs terminés enregistrés avant le coup d&apos;envoi.</p>
@@ -65,7 +74,8 @@ export default function MatchDetail() {
           {analysis.data.warnings.map((w) => <p key={w} className="mt-1 text-xs text-yellow-300">⚠ {w}</p>)}
         </>)}
       </section>
-
+      </>)}
+      {tab === "stats" && (<>
       <section className="card mb-4">
         <h2 className="mb-2 font-medium">Statistiques du match</h2>
         {!sh && !sa ? <p className="text-sm text-muted">Aucune statistique enregistrée.</p> : (
@@ -74,7 +84,8 @@ export default function MatchDetail() {
               <tr key={k} className="border-t border-border"><td className="py-1 text-muted">{label}</td><td>{sh?.[k] ?? "—"}</td><td>{sa?.[k] ?? "—"}</td></tr>))}</tbody></table>)}
         <p className="mt-2 text-xs text-muted">« — » = donnée non renseignée.</p>
       </section>
-
+      </>)}
+      {tab === "odds" && (<>
       <section className="card mb-4">
         <h2 className="mb-2 font-medium">Cotes saisies</h2>
         {odds.loading ? <Loading what="cotes" /> : !odds.data?.markets.length ? <p className="text-sm text-muted">Aucune cote saisie pour ce match.</p> :
@@ -90,14 +101,17 @@ export default function MatchDetail() {
             </div>))}
         <OddsForm matchId={m.id} onDone={odds.reload} />
       </section>
-
+      </>)}
+      {tab === "result" && (<>
       <ResultForm match={m} onDone={match.reload} />
+      </>)}
     </>
   );
 }
 
 function OddsForm({ matchId, onDone }: { matchId: number; onDone: () => void }) {
   const [market, setMarket] = useState("1X2");
+  const toast = useToast();
   const [err, setErr] = useState<string | null>(null);
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -108,7 +122,7 @@ function OddsForm({ matchId, onDone }: { matchId: number; onDone: () => void }) 
       await api(`/matches/${matchId}/odds`, { method: "POST", json: {
         bookmaker: String(f.get("bookmaker")), market, selection: String(f.get("selection")),
         price: Number(f.get("price")), line: line ? Number(line) : null } });
-      form.reset(); onDone();
+      form.reset(); toast("ok", "Cote ajoutée."); onDone();
     } catch (x) { setErr((x as Error).message); }
   }
   return (
@@ -125,14 +139,18 @@ function OddsForm({ matchId, onDone }: { matchId: number; onDone: () => void }) 
 }
 
 function ResultForm({ match, onDone }: { match: Match; onDone: () => void }) {
+  const toast = useToast();
+  const confirm = useConfirm();
   const [err, setErr] = useState<string | null>(null);
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     const h = String(f.get("h")), a = String(f.get("a"));
     setErr(null);
+    if (String(f.get("status")) === "finished" && h !== "" && a !== "" && !(await confirm({ title: `Enregistrer le résultat ${h} – ${a} ?`, message: "Les prédictions enregistrées pour ce match seront réglées automatiquement et ne pourront plus être modifiées.", confirmLabel: "Enregistrer le résultat" }))) return;
     try {
       await api(`/matches/${match.id}`, { method: "PATCH", json: { status: String(f.get("status")), home_score: h === "" ? null : Number(h), away_score: a === "" ? null : Number(a) } });
+      toast("ok", "Résultat enregistré.");
       onDone();
     } catch (x) { setErr((x as Error).message); }
   }

@@ -36,3 +36,14 @@ body {
 .btn { @apply inline-flex items-center justify-center rounded-lg bg-accent px-4 py-2 text-sm font-medium text-black transition hover:brightness-110 disabled:opacity-50; }
 .btn-ghost { @apply inline-flex items-center justify-center rounded-lg border border-border px-3 py-1.5 text-sm text-muted hover:text-foreground; }
 .badge { @apply rounded-full border border-border px-2 py-0.5 text-xs text-muted; }
+
+.skeleton { @apply animate-pulse rounded-md bg-border/70; }
+.tbl { @apply w-full text-sm; }
+.tbl th { @apply px-2 py-1.5 text-left text-xs font-medium text-muted; }
+.tbl td { @apply px-2 py-1.5; }
+.tbl tbody tr { @apply border-t border-border; }
+.tbl tbody tr:hover { @apply bg-background/40; }
+.chip { @apply inline-flex h-5 w-5 items-center justify-center rounded text-[11px] font-semibold; }
+.tab { @apply -mb-px border-b-2 border-transparent px-3 py-2 text-sm text-muted hover:text-foreground; }
+.tab[aria-selected="true"] { @apply border-accent text-foreground; }
+.btn-danger { @apply inline-flex items-center justify-center rounded-lg border border-red-500/50 px-3 py-1.5 text-sm text-red-300 hover:bg-red-500/10 disabled:opacity-50; }
