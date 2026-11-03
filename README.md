@@ -84,7 +84,11 @@ Les cotes n'existent que si elles ont été saisies. L'analyse n'applique la cor
 
 Le modèle bat nettement la baseline mais **reste moins précis que les bookmakers** (différence établie), et les paris simulés sur ses écarts auraient perdu 12 à 18 %. La page *Fiabilité* de l'application affiche ce banc d'essai en permanence.
 
-## Mettre en ligne
+## Utiliser chez vous, gratuitement (recommandé pour démarrer)
+
+Aucun serveur ni abonnement : l'application tourne sur votre ordinateur (Docker Desktop) et s'ouvre aussi sur le téléphone via le même Wi-Fi. Double-clic sur `Demarrer-PREDIX.bat`. Guide : [`docs/UTILISATION_LOCALE.md`](docs/UTILISATION_LOCALE.md).
+
+## Mettre en ligne (plus tard, payant)
 
 Guide complet, de l'achat du serveur à l'installation sur téléphone : [`docs/SERVEUR.md`](docs/SERVEUR.md).
 

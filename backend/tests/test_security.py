@@ -98,3 +98,37 @@ def test_production_config_is_strict():
         with pytest.raises(ValueError):
             Settings(**{**good, **bad})
     assert Settings(environment="development").cookie_secure_effective is False
+
+
+def test_lan_origins_only_when_explicitly_enabled(client, monkeypatch):
+    _login(client)
+    lan = {"Origin": "http://192.168.1.50:3000"}
+    assert (
+        client.post("/api/v1/teams", json={"name": "LAN 1"}, headers=lan).status_code == 403
+    )  # désactivé par défaut
+    import app.core.middleware as mw
+
+    monkeypatch.setattr(
+        mw, "get_settings", lambda: Settings(environment="development", allow_lan_origins=True)
+    )
+    assert client.post("/api/v1/teams", json={"name": "LAN 2"}, headers=lan).status_code == 201
+    for bad in (
+        "http://8.8.8.8:3000",
+        "https://evil.example",
+        "http://192.168.1.50:8080",
+        "http://192.168.1.50.evil.com:3000",
+    ):
+        assert (
+            client.post("/api/v1/teams", json={"name": bad}, headers={"Origin": bad}).status_code
+            == 403
+        )
+
+
+def test_lan_mode_is_forbidden_in_production():
+    with pytest.raises(ValueError):
+        Settings(
+            environment="production",
+            secret_key="x" * 40,
+            cors_origins="https://a.example.com",
+            allow_lan_origins=True,
+        )

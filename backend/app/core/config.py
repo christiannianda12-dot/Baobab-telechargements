@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     session_cookie_name: str = "predix_session"
     cookie_secure: bool | None = None  # None => True en production (HTTPS obligatoire), False sinon
     cookie_samesite: str = "lax"
+    # Usage interne : accepte le site ouvert via l'IP du PC sur le réseau local (jamais en production)
+    allow_lan_origins: bool = False
     trust_proxy_headers: bool = (
         False  # True derrière un reverse proxy de confiance (X-Forwarded-For)
     )
@@ -50,6 +52,13 @@ class Settings(BaseSettings):
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
     @property
+    def cors_origin_regex(self) -> str | None:
+        """Origines du réseau local privé (localhost, 192.168.x.x, 10.x.x.x, 172.16-31.x.x) sur le port 3000."""
+        if not self.allow_lan_origins:
+            return None
+        return r"http://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+):3000"
+
+    @property
     def cookie_secure_effective(self) -> bool:
         return (
             self.environment == "production" if self.cookie_secure is None else self.cookie_secure
@@ -65,6 +74,10 @@ class Settings(BaseSettings):
             self.secret_key == INSECURE_DEFAULT_SECRET or len(self.secret_key) < 32
         ):
             raise ValueError("SECRET_KEY doit être défini (>= 32 caractères) en production.")
+        if self.environment == "production" and self.allow_lan_origins:
+            raise ValueError(
+                "ALLOW_LAN_ORIGINS est réservé à l'usage interne : interdit en production."
+            )
         if self.environment == "production" and any(
             o in ("*", "") or o.startswith("http://localhost") for o in self.cors_origin_list
         ):

@@ -1,5 +1,7 @@
 """En-têtes de sécurité et protection CSRF (contrôle d'origine) pour l'authentification par cookie."""
 
+import re
+
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
@@ -22,7 +24,10 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
             origin = request.headers.get("origin")
             if origin is None and (ref := request.headers.get("referer")):
                 origin = "/".join(ref.split("/")[:3])
-            if origin not in s.cors_origin_list:
+            lan = s.cors_origin_regex
+            if origin not in s.cors_origin_list and not (
+                lan and origin and re.fullmatch(lan, origin)
+            ):
                 return JSONResponse({"detail": "Origine non autorisée."}, status_code=403)
         return await call_next(request)
 

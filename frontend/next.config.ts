@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
-const api = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const rawApi = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const api = rawApi === "same-origin" ? "" : rawApi; // "same-origin" : pas d'origine externe à autoriser
+const internalApi = process.env.API_INTERNAL_URL; // ex. http://api:8000 (figé au build)
 const isProd = process.env.NODE_ENV === "production";
 
 // CSP : Next.js injecte des scripts en ligne ; 'unsafe-inline' reste donc nécessaire pour script-src tant que
@@ -10,7 +12,7 @@ const csp = [
   `script-src 'self' 'unsafe-inline'${isProd ? "" : " 'unsafe-eval'"}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data:",
-  `connect-src 'self' ${api}`,
+  `connect-src 'self' ${api}`.trim(),
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -22,6 +24,10 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Image Docker minimale ; activé uniquement au build conteneur (BUILD_STANDALONE=1).
   output: process.env.BUILD_STANDALONE === "1" ? "standalone" : undefined,
+  // Relais /api -> API (réseau Docker interne) : un seul point d'entrée pour le site et l'API.
+  async rewrites() {
+    return internalApi ? [{ source: "/api/:path*", destination: `${internalApi}/api/:path*` }] : [];
+  },
   async headers() {
     return [
       {

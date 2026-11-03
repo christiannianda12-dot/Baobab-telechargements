@@ -1,7 +1,9 @@
 /** Client API. L'URL vient de NEXT_PUBLIC_API_URL ; aucune clé secrète ne passe par le frontend. */
 import { setToken } from "@/lib/session";
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+// "same-origin" : le site relaie lui-même /api vers l'API (usage interne, accessible depuis le téléphone via l'IP du PC).
+const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+export const API_URL = RAW_API_URL === "same-origin" ? "" : RAW_API_URL.replace(/\/$/, "");
 
 export type SystemInfo = {
   app: string;
