@@ -19,7 +19,7 @@ from app.models import Competition, ImportBatch, Match, MatchStatistics, Odds, T
 from app.models.mixins import DataSource, utcnow
 from app.models.sports import MatchStatus
 from app.services.csv_adapters import to_native
-from app.services.names import norm_key
+from app.services.names import norm_key, resolve_existing
 
 MAX_ROWS = 5000
 REQUIRED = ["date", "competition", "home_team", "away_team", "home_score", "away_score"]
@@ -34,7 +34,15 @@ STAT_FIELDS = {  # suffixe CSV -> colonne MatchStatistics
 }
 CLOSING_BOOKMAKER = "Clôture (moyenne marché)"
 PRE_BOOKMAKER = "Cotes avant-match (football-data)"
-ODDS_COLS = ["close_home", "close_draw", "close_away", "pre_home", "pre_draw", "pre_away"]
+ODDS_COLS = [
+    "close_home",
+    "close_draw",
+    "close_away",
+    "pre_home",
+    "pre_draw",
+    "pre_away",
+    "odds_extra",
+]
 OPTIONAL = (
     ["season", "home_score_ht", "away_score_ht"]
     + ODDS_COLS
@@ -62,6 +70,9 @@ class Row(BaseModel):
     stats: dict[str, dict[str, float | None]] = {}
     close: tuple[float, float, float] | None = None
     pre: tuple[float, float, float] | None = None
+    extra: list[
+        tuple[str, str, str, float | None, float]
+    ] = []  # (bookmaker, marché, issue, ligne, cote)
 
     _c = field_validator("close", "pre")(lambda cls, v: _odds3(v))
 
@@ -95,6 +106,9 @@ class ImportReport:
     dry_run: bool = False
     source_format: str = "native"
     batch_id: int | None = None
+    ignored: list = field(default_factory=list)
+    ignored_count: int = 0
+    auto_matched: int = 0
 
 
 def _num(raw: str | None, as_int: bool):
@@ -107,6 +121,34 @@ def _num(raw: str | None, as_int: bool):
             raise ValueError(f"entier positif attendu, reçu {raw!r}")
         return int(v)
     return v
+
+
+ALLOWED_SEL = {"1X2": {"home", "draw", "away"}, "OU": {"over", "under"}}
+
+
+def _extra(raw: str | None) -> list[tuple[str, str, str, float | None, float]]:
+    """Colonne odds_extra (JSON) : cotes de plusieurs bookmakers. Une cote invalide invalide la ligne (jamais ignorée en silence)."""
+    import json
+
+    if not raw or not raw.strip():
+        return []
+    try:
+        items = json.loads(raw)
+        out = []
+        for it in items:
+            b, m, sel, line, price = (
+                str(it["b"])[:80],
+                it["m"],
+                it["s"],
+                it.get("l"),
+                float(it["p"]),
+            )
+            if m not in ALLOWED_SEL or sel not in ALLOWED_SEL[m] or price <= 1 or not b:
+                raise ValueError
+            out.append((b, m, sel, None if line is None else float(line), price))
+        return out
+    except (ValueError, KeyError, TypeError, json.JSONDecodeError):
+        raise ValueError("colonne odds_extra invalide (JSON de cotes attendu)") from None
 
 
 def _triple(d: dict, prefix: str):
@@ -160,6 +202,7 @@ def parse(text: str, max_rows: int = MAX_ROWS) -> tuple[list[tuple[int, Row]], l
                 stats=stats,
                 close=_triple(d, "close"),
                 pre=_triple(d, "pre"),
+                extra=_extra(d.get("odds_extra")),
             )
             if norm_key(r.home_team) == norm_key(r.away_team):
                 raise ValueError("une équipe ne peut pas jouer contre elle-même")
@@ -189,6 +232,37 @@ def _add_odds(db: Session, match_id: int, bookmaker: str, triple, when: datetime
         )
 
 
+def _apply_extra(db: Session, match_id: int, extra, when: datetime) -> int:
+    """Ajoute les cotes nouvelles ou modifiées (l'historique est conservé). Retourne le nombre de lignes ajoutées."""
+    if not extra:
+        return 0
+    latest: dict[tuple, float] = {}
+    q = (
+        select(Odds)
+        .where(Odds.match_id == match_id, Odds.bookmaker.in_({e[0] for e in extra}))
+        .order_by(Odds.recorded_at, Odds.id)
+    )
+    for o in db.scalars(q):
+        latest[(o.bookmaker, o.market, o.selection, o.line)] = o.price
+    n = 0
+    for b, m, sel, line, price in extra:
+        if latest.get((b, m, sel, line)) != price:
+            db.add(
+                Odds(
+                    match_id=match_id,
+                    bookmaker=b,
+                    market=m,
+                    selection=sel,
+                    line=line,
+                    price=price,
+                    recorded_at=when,
+                    source=DataSource.MANUAL,
+                )
+            )
+            n += 1
+    return n
+
+
 def _latest_prices(db: Session, match_id: int, bookmaker: str) -> dict[str, float]:
     out: dict[str, float] = {}
     for o in db.scalars(
@@ -211,6 +285,7 @@ def import_csv(
     user_id: int | None = None,
     source: str = "upload",
     label: str = "",
+    tolerant: bool = False,
 ) -> ImportReport:
     text, fmt = to_native(text, competition, season, since_year)
     rows, errors = parse(text, max_rows)
@@ -218,7 +293,18 @@ def import_csv(
         rows=len(rows) + len(errors), errors=errors, dry_run=dry_run, source_format=fmt
     )
     if errors:
-        return rep  # tout-ou-rien
+        # Mode tolérant (téléchargements automatiques) : quelques lignes douteuses (match reporté sans score, date illisible…)
+        # sont ignorées et listées ; le fichier n'est refusé que s'il est globalement mauvais (format inconnu, > 5 % d'erreurs).
+        total = len(rows) + len(errors)
+        if (
+            tolerant
+            and rows
+            and not any(e["line"] == 1 for e in errors)
+            and len(errors) <= max(5, total * 0.05)
+        ):
+            rep.ignored, rep.ignored_count, rep.errors = errors[:50], len(errors), []
+        else:
+            return rep  # tout-ou-rien
 
     # Résolution insensible à la casse, aux accents et à la ponctuation ; alias prioritaires.
     teams: dict[str, Team] = {}
@@ -243,6 +329,13 @@ def import_csv(
 
     def team(name: str) -> Team:
         key = norm_key(name)
+        if key not in teams and (found := resolve_existing(key, teams)) is not None:
+            teams[key] = found[0]  # même équipe sous un autre libellé : pas de doublon
+            rep.auto_matched += 1
+            if len(rep.warnings) < 20:
+                rep.warnings.append(
+                    f"↔ « {name.strip()} » reconnue comme « {found[0].name} » ({found[1]})."
+                )
         if key not in teams:
             t = Team(name=name.strip(), source=DataSource.MANUAL)
             db.add(t)
@@ -304,6 +397,10 @@ def import_csv(
                 if r.close and not _latest_prices(db, known.id, CLOSING_BOOKMAKER):
                     _add_odds(db, known.id, CLOSING_BOOKMAKER, r.close, r.date)  # enrichissement
                     rep.enriched_odds += 1
+                if known.status == MatchStatus.SCHEDULED and (
+                    n := _apply_extra(db, known.id, r.extra, now)
+                ):
+                    rep.enriched_odds += n
                 if r.pre and known.status == MatchStatus.SCHEDULED:
                     cur = _latest_prices(db, known.id, PRE_BOOKMAKER)
                     if [cur.get(s) for s in ("home", "draw", "away")] != list(r.pre):
@@ -333,6 +430,8 @@ def import_csv(
             _add_odds(db, m.id, CLOSING_BOOKMAKER, r.close, r.date)
         if r.pre and m.status == MatchStatus.SCHEDULED:
             _add_odds(db, m.id, PRE_BOOKMAKER, r.pre, now)
+        if m.status == MatchStatus.SCHEDULED:
+            _apply_extra(db, m.id, r.extra, now)
         rep.created_matches += 1
 
     batch.created_matches, batch.updated_matches = rep.created_matches, rep.updated_matches

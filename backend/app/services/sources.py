@@ -20,8 +20,9 @@ from app.services.csv_import import import_csv
 
 BASE = "https://www.football-data.co.uk"
 ALLOWED_HOSTS = {"www.football-data.co.uk", "football-data.co.uk"}
+CUPS_BASE = "https://raw.githubusercontent.com/openfootball/champions-league/master"  # domaine public (openfootball)
 MAX_BYTES = 12_000_000
-USER_AGENT = "PREDIX-AI/1.0 (usage personnel; historique de matchs)"
+USER_AGENT = "Mozilla/5.0 (compatible; PREDIX-AI/1.0; usage personnel)"
 
 # code -> (nom, pays)
 MAIN = {
@@ -48,6 +49,14 @@ EXTRA = {
 }
 
 
+# coupes continentales : code -> (nom, zone, nom de fichier)
+CUPS = {
+    "CL": ("Ligue des champions", "Europe", "cl"),
+    "EL": ("Europa League", "Europe", "el"),
+    "CONF": ("Conference League", "Europe", "conf"),
+}
+
+
 class SourceError(Exception):
     pass
 
@@ -55,6 +64,7 @@ class SourceError(Exception):
 def catalog() -> list[dict]:
     rows = [{"code": c, "name": n, "country": p, "kind": "main"} for c, (n, p) in MAIN.items()]
     rows += [{"code": c, "name": n, "country": p, "kind": "extra"} for c, (n, p) in EXTRA.items()]
+    rows += [{"code": c, "name": n, "country": z, "kind": "cup"} for c, (n, z, _) in CUPS.items()]
     return rows
 
 
@@ -72,30 +82,55 @@ def url_for(code: str, season: str | None = None) -> str:
         return f"{BASE}/mmz4281/{season}/{code}.csv"
     if code in EXTRA:
         return f"{BASE}/new/{code}.csv"
+    if code in CUPS:
+        if not season:
+            raise SourceError("saison requise")
+        return f"{CUPS_BASE}/20{season[:2]}-{season[2:]}/{CUPS[code][2]}.txt"
     raise SourceError(f"Championnat inconnu : {code}")
 
 
-def fetch_text(url: str, client: httpx.Client | None = None) -> str | None:
-    """Télécharge un CSV. None si le fichier n'existe pas (404). Lève SourceError sinon en cas de problème."""
-    if urlparse(url).hostname not in ALLOWED_HOSTS or not url.startswith("https://"):
+def _allowed(url: str) -> bool:
+    u = urlparse(url)
+    if u.scheme != "https":
+        return False
+    return u.hostname in ALLOWED_HOSTS or (
+        u.hostname == "raw.githubusercontent.com" and u.path.startswith("/openfootball/")
+    )
+
+
+def fetch_text(url: str, client: httpx.Client | None = None, attempts: int = 3) -> str | None:
+    """Télécharge un fichier texte. None si absent (404). Nouvelles tentatives sur erreur réseau / 5xx / 429.
+    Lève SourceError avec un message de diagnostic (adresse, code HTTP) sinon."""
+    if not _allowed(url):
         raise SourceError("Domaine non autorisé.")
     own = client is None
     client = client or httpx.Client(
         timeout=30, headers={"User-Agent": USER_AGENT}, follow_redirects=False
     )
+    short = url.split("//", 1)[1][:90]
     try:
-        r = client.get(url)
-    except httpx.HTTPError as e:
-        raise SourceError(
-            f"Téléchargement impossible ({type(e).__name__}) : vérifiez la connexion Internet."
-        ) from None
+        r = None
+        for i in range(attempts):
+            try:
+                r = client.get(url)
+            except httpx.HTTPError as e:
+                if i == attempts - 1:
+                    raise SourceError(
+                        f"Téléchargement impossible ({type(e).__name__}) : {short} — vérifiez la connexion Internet."
+                    ) from None
+                time.sleep(1.5 * (i + 1))
+                continue
+            if r.status_code in (429, 500, 502, 503, 504) and i < attempts - 1:
+                time.sleep(1.5 * (i + 1))
+                continue
+            break
     finally:
         if own:
             client.close()
     if r.status_code == 404:
         return None
     if r.status_code != 200:
-        raise SourceError(f"Le site a répondu HTTP {r.status_code}.")
+        raise SourceError(f"Le site a répondu HTTP {r.status_code} : {short}")
     if len(r.content) > MAX_BYTES:
         raise SourceError("Fichier trop volumineux.")
     for enc in ("utf-8-sig", "cp1252"):
@@ -113,6 +148,7 @@ def _import(
     user_id: int | None,
     source: str,
     since_year: int | None = None,
+    url: str = "",
 ) -> dict:
     rep = import_csv(
         db,
@@ -122,13 +158,16 @@ def _import(
         user_id=user_id,
         max_rows=200_000,
         since_year=since_year,
+        tolerant=True,
     )
     if rep.errors:
         e = rep.errors[0]
         return {
             "label": label,
             "status": "erreur",
-            "message": f"ligne {e['line']} : {e['error']} ({len(rep.errors)} erreur(s), rien importé)",
+            "url": url,
+            "format": rep.source_format,
+            "message": f"fichier refusé : {len(rep.errors)} ligne(s) invalide(s), première → ligne {e['line']} : {e['error']}. Rien n'a été importé.",
         }
     return {
         "label": label,
@@ -136,8 +175,12 @@ def _import(
         "created": rep.created_matches,
         "updated": rep.updated_matches,
         "skipped": rep.skipped_duplicates,
+        "ignored": rep.ignored_count,
+        "ignored_sample": [f"ligne {e['line']} : {e['error']}" for e in rep.ignored[:3]],
+        "auto_matched": rep.auto_matched,
         "warnings": rep.warnings,
         "batch_id": rep.batch_id,
+        "format": rep.source_format,
     }
 
 
@@ -162,7 +205,7 @@ def add_league(
     """Télécharge et importe les n dernières saisons d'un championnat, puis le suit pour les mises à jour."""
     today = today or date.today()
     results = []
-    if code in MAIN:
+    if code in MAIN or code in CUPS:
         for i, ssn in enumerate(recent_seasons(n_seasons, today)):
             if i:
                 time.sleep(pause)
@@ -230,7 +273,9 @@ def update_all(
     for i, code in enumerate(followed):
         if progress:
             progress(i, len(followed) + 1, f"Mise à jour {code}")
-        sub = add_league(db, code, n_main if code in MAIN else 2, user_id, client, pause, today)
+        sub = add_league(
+            db, code, n_main if code in MAIN or code in CUPS else 2, user_id, client, pause, today
+        )
         results += sub
         time.sleep(pause)
     divs = {c for c in followed if c in MAIN}

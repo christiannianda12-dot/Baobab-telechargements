@@ -20,8 +20,8 @@ from app.models import (
 )
 from app.models.mixins import utcnow
 from app.models.sports import MatchStatus
-from app.services.csv_import import CLOSING_BOOKMAKER, PRE_BOOKMAKER
-from app.services.names import norm_key
+from app.services.csv_import import CLOSING_BOOKMAKER
+from app.services.names import abbreviation, norm_key
 
 
 class OpsError(Exception):
@@ -72,15 +72,6 @@ def cleanup_orphans(db: Session) -> dict:
     return {"teams": len(orphan_t), "competitions": len(orphan_c)}
 
 
-def _abbreviation(ka: str, kb: str) -> bool:
-    """« man utd » ~ « manchester utd » : mêmes mots, chacun étant le début de l'autre (>= 3 lettres)."""
-    ta, tb = ka.split(), kb.split()
-    return len(ta) == len(tb) >= 2 and all(
-        min(len(x), len(y)) >= 3 and (x.startswith(y) or y.startswith(x))
-        for x, y in zip(ta, tb, strict=True)
-    )
-
-
 def duplicate_suggestions(db: Session, cutoff: float = 0.8) -> list[dict]:
     """Paires d'équipes probablement identiques. Deux équipes qui jouent dans la même compétition sont forcément distinctes."""
     teams = list(db.scalars(select(Team)))
@@ -102,7 +93,7 @@ def duplicate_suggestions(db: Session, cutoff: float = 0.8) -> list[dict]:
             ka, kb = keys[a.id], keys[b.id]
             if ka == kb:
                 score = 1.0
-            elif _abbreviation(ka, kb):
+            elif abbreviation(ka, kb):
                 score = 0.9
             else:
                 sm = difflib.SequenceMatcher(None, ka, kb)
@@ -196,7 +187,7 @@ def quality_report(db: Session, competition_id: int) -> dict:
         set(
             db.scalars(
                 select(Odds.match_id).where(
-                    Odds.match_id.in_(match_ids), Odds.bookmaker == PRE_BOOKMAKER
+                    Odds.match_id.in_(match_ids), Odds.bookmaker != CLOSING_BOOKMAKER
                 )
             )
         )

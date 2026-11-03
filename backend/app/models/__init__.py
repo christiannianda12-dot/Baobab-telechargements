@@ -1,4 +1,4 @@
-from app.models.dataops import FollowedLeague, ImportBatch, TeamAlias
+from app.models.dataops import AppSetting, AutomationRun, FollowedLeague, ImportBatch, TeamAlias
 from app.models.odds import Odds
 from app.models.prediction import (
     AnalysisHistory,
@@ -12,6 +12,8 @@ from app.models.user import User
 
 __all__ = [
     "APIProvider",
+    "AppSetting",
+    "AutomationRun",
     "FollowedLeague",
     "ImportBatch",
     "TeamAlias",

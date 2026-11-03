@@ -41,7 +41,7 @@ def test_extra_leagues_and_fixtures_formats():
     assert "Serie A (Brazil)" in n and ",2024," in n
     fx = "Div,Date,Time,HomeTeam,AwayTeam,B365H,B365D,B365A\nE0,05/11/2026,20:00,Arsenal,Chelsea,1.9,3.5,4.2\n"
     n2, fmt2 = ad.to_native(fx)
-    assert fmt2 == "football-data-fixtures" and n2.strip().split("\n")[1].endswith("1.9,3.5,4.2")
+    assert fmt2 == "football-data-fixtures" and "Bet365" in n2 and "1.9" in n2
 
 
 # ---------- import : programmé -> terminé, alias, garde-fous ----------
@@ -114,14 +114,17 @@ def test_merge_refused_for_opponents_and_duplicates_logic(db_session):
     put(
         db_session,
         HEAD
-        + "2025-01-10,L,2024-2025,Real Madrid,Real Sociedad,1,0\n2025-01-11,Autre,2024-2025,Man Utd,Z,1,0\n2025-01-11,Autre2,2024-2025,Manchester Utd,Y,1,0\n",
+        + "2025-01-10,L,2024-2025,Real Madrid,Real Sociedad,1,0\n2025-01-11,Autre,2024-2025,Borussia Dortmund,Z,1,0\n2025-01-11,Autre2,2024-2025,Borussia Dortmnd,Y,1,0\n",
     )
     ids = {t.name: t.id for t in db_session.scalars(select(Team))}
     with pytest.raises(dataops.OpsError) as e:
         dataops.merge_teams(db_session, ids["Real Madrid"], ids["Real Sociedad"])
     assert e.value.status == 409
     pairs = {(d["a"]["name"], d["b"]["name"]) for d in dataops.duplicate_suggestions(db_session)}
-    assert ("Man Utd", "Manchester Utd") in pairs or ("Manchester Utd", "Man Utd") in pairs
+    assert ("Borussia Dortmund", "Borussia Dortmnd") in pairs or (
+        "Borussia Dortmnd",
+        "Borussia Dortmund",
+    ) in pairs
     assert not any(
         {"Real Madrid", "Real Sociedad"} == set(p) for p in pairs
     )  # jouent dans la même compétition
@@ -286,7 +289,7 @@ def test_recent_seasons_and_catalog():
         "2425",
     ] and sources.recent_seasons(2, date(2027, 3, 1)) == ["2627", "2526"]
     cat = sources.catalog()
-    assert len(cat) == 38 and {"E0", "SP1", "BRA", "USA"} <= {c["code"] for c in cat}
+    assert len(cat) == 41 and {"E0", "SP1", "BRA", "USA"} <= {c["code"] for c in cat}
     assert sources.url_for("E0", "2526").endswith("/mmz4281/2526/E0.csv") and sources.url_for(
         "BRA"
     ).endswith("/new/BRA.csv")

@@ -60,6 +60,39 @@ CLOSE_SOURCES = [
     ("B365CH", "B365CD", "B365CA"),
 ]  # moyenne marché, sinon Bet365
 PRE_SOURCES = [("AvgH", "AvgD", "AvgA"), ("B365H", "B365D", "B365A")]
+# colonnes football-data -> bookmaker affiché (seulement les libellés certains)
+BOOKS = {
+    "B365": "Bet365",
+    "BW": "Bwin",
+    "BV": "BetVictor",
+    "BFD": "Betfred",
+    "SKB": "Sky Bet",
+    "PS": "Pinnacle",
+    "WH": "William Hill",
+    "IW": "Interwetten",
+    "VC": "VC Bet",
+    "Max": "Meilleure cote du marché",
+    "Avg": "Moyenne du marché",
+}
+
+
+def _extra_odds(r: dict) -> str:
+    """Cotes 1X2 et plus/moins 2,5 de tous les bookmakers présents, en JSON (colonne odds_extra)."""
+    import json
+
+    out = []
+    for code, label in BOOKS.items():
+        for suf, sel in (("H", "home"), ("D", "draw"), ("A", "away")):
+            v = r.get(f"{code}{suf}")
+            if v:
+                out.append({"b": label, "m": "1X2", "s": sel, "l": None, "p": v})
+        for sym, sel in ((">2.5", "over"), ("<2.5", "under")):
+            v = r.get(f"{code}{sym}")
+            if v:
+                out.append({"b": label, "m": "OU", "s": sel, "l": 2.5, "p": v})
+    return json.dumps(out, separators=(",", ":")) if out else ""
+
+
 NATIVE_HEAD = [
     "date",
     "competition",
@@ -77,6 +110,10 @@ def _cols(text: str) -> set[str]:
 
 
 def sniff(text: str) -> str:
+    from app.services import footballtxt
+
+    if footballtxt.sniff(text):
+        return "football-txt"
     c = _cols(text)
     if {"HomeTeam", "AwayTeam", "FTHG", "FTAG"} <= c or {"HomeTeam", "AwayTeam", "HG", "AG"} <= c:
         return "football-data"
@@ -128,13 +165,17 @@ def to_native(
     fmt = sniff(text)
     if fmt == "native":
         return text, "native"
+    if fmt == "football-txt":
+        from app.services import footballtxt
+
+        return footballtxt.to_native_csv(text), fmt
     text = text.lstrip("﻿")
     first = text.split("\n", 1)[0]
     delim = ";" if first.count(";") > first.count(",") else ","
     rows = list(csv.DictReader(io.StringIO(text), delimiter=delim))
     out = io.StringIO()
     w = csv.writer(out, lineterminator="\n")
-    w.writerow(NATIVE_HEAD + list(STATS.values()) + CLOSE_COLS + PRE_COLS)
+    w.writerow(NATIVE_HEAD + list(STATS.values()) + CLOSE_COLS + PRE_COLS + ["odds_extra"])
     for r in rows:
         r = {(k or "").strip(): (v or "").strip() for k, v in r.items()}
         home, away = r.get("HomeTeam") or r.get("Home", ""), r.get("AwayTeam") or r.get("Away", "")
@@ -148,7 +189,7 @@ def to_native(
             comp = competition or f"{r.get('League', '')} ({r.get('Country', '')})".strip()
             ssn = season or r.get("Season", "").replace("/", "-")
             hg, ag = r.get("HG", ""), r.get("AG", "")
-            close, pre = _first(r, [("AvgH", "AvgD", "AvgA")]), ["", "", ""]
+            close = _first(r, [("AvgH", "AvgD", "AvgA")])
             stats = [""] * len(STATS)
         else:
             comp = competition or DIVISIONS.get(r.get("Div", ""), r.get("Div", ""))
@@ -159,7 +200,13 @@ def to_native(
                 else ("", "")
             )
             close = _first(r, CLOSE_SOURCES) if fmt == "football-data" else ["", "", ""]
-            pre = _first(r, PRE_SOURCES) if fmt == "football-data-fixtures" else ["", "", ""]
             stats = [r.get(k, "") for k in STATS] if fmt == "football-data" else [""] * len(STATS)
-        w.writerow([_when(iso, r.get("Time")), comp, ssn, home, away, hg, ag] + stats + close + pre)
+        extra = _extra_odds(r) if fmt == "football-data-fixtures" else ""
+        w.writerow(
+            [_when(iso, r.get("Time")), comp, ssn, home, away, hg, ag]
+            + stats
+            + close
+            + [""] * 3
+            + [extra]
+        )
     return out.getvalue(), fmt

@@ -42,3 +42,24 @@ class ImportBatch(CreatedAtMixin, Base):
     created_teams: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(20), default="active")  # active | rolled_back
     rolled_back_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+
+
+class AppSetting(Base):
+    """Réglages persistants (automatisation, clés d'API). Les valeurs secrètes ne sont jamais renvoyées par l'API."""
+
+    __tablename__ = "app_settings"
+
+    key: Mapped[str] = mapped_column(String(60), primary_key=True)
+    value: Mapped[str] = mapped_column(Text, default="")
+
+
+class AutomationRun(CreatedAtMixin, Base):
+    __tablename__ = "automation_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    trigger: Mapped[str] = mapped_column(String(20))  # auto | manual | startup
+    status: Mapped[str] = mapped_column(
+        String(20), default="running"
+    )  # running | ok | partial | error
+    summary: Mapped[str | None] = mapped_column(Text)  # JSON

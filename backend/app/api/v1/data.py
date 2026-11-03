@@ -13,7 +13,11 @@ MAX_BYTES = 2_000_000
 
 @router.post("/import/matches")
 async def import_matches(
-    db: DbDep, user: CurrentUser, file: Annotated[UploadFile, File()], dry_run: bool = False
+    db: DbDep,
+    user: CurrentUser,
+    file: Annotated[UploadFile, File()],
+    dry_run: bool = False,
+    tolerant: bool = False,
 ):
     """Import CSV de matchs terminés (tout-ou-rien). `dry_run=true` valide sans rien écrire."""
     raw = await file.read(MAX_BYTES + 1)
