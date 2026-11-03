@@ -17,6 +17,7 @@ class Rec:
     away: int
     hg: int
     ag: int
+    match_id: int = 0
 
 
 def sibling_ids(db: Session, competition_id: int) -> list[int]:
@@ -44,5 +45,6 @@ def load_finished(db: Session, competition_id: int, before: datetime | None = No
         q = q.where(Match.kickoff_at < before)
     rows = db.scalars(q.order_by(Match.kickoff_at, Match.id))
     return [
-        Rec(m.kickoff_at, m.home_team_id, m.away_team_id, m.home_score, m.away_score) for m in rows
+        Rec(m.kickoff_at, m.home_team_id, m.away_team_id, m.home_score, m.away_score, m.id)
+        for m in rows
     ]

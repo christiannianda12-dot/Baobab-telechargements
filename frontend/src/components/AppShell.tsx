@@ -14,6 +14,7 @@ const NAV = [
   { href: "/combos", label: "Combinés", short: "Combinés", icon: "⊞" },
   { href: "/history", label: "Historique", short: "Historique", icon: "↺" },
   { href: "/performance", label: "Performance", short: "Perf.", icon: "◔" },
+  { href: "/reliability", label: "Fiabilité", short: "Fiabilité", icon: "✓" },
   { href: "/settings", label: "Paramètres", short: "Réglages", icon: "⚙" },
   { href: "/admin", label: "Administration", short: "Admin", icon: "⛨", admin: true },
 ];

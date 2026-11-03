@@ -203,7 +203,7 @@ function PredictionCard({ p, loading, home, away }: { p?: Prediction; loading: b
             <table className="mt-3 w-full text-sm"><thead><tr className="text-left text-muted"><th>Cote saisie</th><th>Cote</th><th>Proba modèle</th><th>Écart</th><th>Valeur espérée</th></tr></thead>
               <tbody>{p.value.map((v, i) => (<tr key={i} className="border-t border-border"><td className="py-1">{v.market} {v.selection}{v.line !== null ? ` ${v.line}` : ""}</td><td>{v.price}</td>
                 <td>{pct(v.estimated_probability)}</td><td>{(v.edge * 100).toFixed(1)} pt</td><td className={v.expected_value > 0 ? "text-accent" : ""}>{(v.expected_value * 100).toFixed(1)} %</td></tr>))}</tbody></table>)}
-          {p.value_note && p.value && p.value.length > 0 && <p className="mt-1 text-xs text-muted">{p.value_note}</p>}
+          {p.value_note && p.value && p.value.length > 0 && <p className="mt-1 text-xs text-muted">{p.value_note} <a className="text-accent underline" href="/reliability">Voir la fiabilité mesurée</a>.</p>}
         </>)}
         <details className="mt-3 text-xs text-muted"><summary className="cursor-pointer">Limites du modèle</summary>
           <ul className="mt-1 list-disc pl-5">{p.limitations.map((l) => <li key={l}>{l}</li>)}</ul></details>

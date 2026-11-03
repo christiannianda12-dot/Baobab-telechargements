@@ -13,6 +13,8 @@ import math
 from dataclasses import dataclass, field
 from datetime import datetime
 
+import numpy as np
+
 from app.ml.data import Rec
 
 MODEL_NAME = "poisson"
@@ -46,37 +48,47 @@ def fit(
     shrink: float = 5.0,
     iters: int = 30,
 ) -> Fit:
+    """Estimation vectorisée (numpy). Mêmes formules que la version itérative d'origine."""
     recs = [r for r in recs if r.when < as_of]  # garde-fou anti-fuite
-    w = [0.5 ** (max((as_of - r.when).total_seconds(), 0) / 86400 / half_life_days) for r in recs]
-    sw = sum(w) or 1.0
-    mu_h = sum(wi * r.hg for wi, r in zip(w, recs, strict=True)) / sw
-    mu_a = sum(wi * r.ag for wi, r in zip(w, recs, strict=True)) / sw
+    params = {"half_life_days": half_life_days, "shrink": shrink}
+    if not recs:
+        return Fit(0.0, 0.0, {}, {}, {}, 0, params)
+    team_ids = sorted({t for r in recs for t in (r.home, r.away)})
+    pos = {t: i for i, t in enumerate(team_ids)}
+    T = len(team_ids)
+    h = np.fromiter((pos[r.home] for r in recs), dtype=np.intp, count=len(recs))
+    a = np.fromiter((pos[r.away] for r in recs), dtype=np.intp, count=len(recs))
+    hg = np.fromiter((r.hg for r in recs), dtype=float, count=len(recs))
+    ag = np.fromiter((r.ag for r in recs), dtype=float, count=len(recs))
+    age = (
+        np.fromiter(
+            (max(as_of.timestamp() - r.when.timestamp(), 0.0) for r in recs),
+            dtype=float,
+            count=len(recs),
+        )
+        / 86400
+    )
+    w = 0.5 ** (age / half_life_days)
+    sw = w.sum() or 1.0
+    mu_h, mu_a = float((w * hg).sum() / sw), float((w * ag).sum() / sw)
     mu = (mu_h + mu_a) / 2 or 1.0
-    teams = {t for r in recs for t in (r.home, r.away)}
-    att = dict.fromkeys(teams, 1.0)
-    dfn = dict.fromkeys(teams, 1.0)
-    games: dict[int, int] = dict.fromkeys(teams, 0)
-    for r in recs:
-        games[r.home] += 1
-        games[r.away] += 1
+    bc = lambda idx, vals: np.bincount(idx, weights=vals, minlength=T)  # noqa: E731
+    s_att, s_def = bc(h, w * hg) + bc(a, w * ag), bc(a, w * hg) + bc(h, w * ag)
+    att, dfn = np.ones(T), np.ones(T)
+    k = shrink * mu
     for _ in range(iters):
-        s_att = dict.fromkeys(teams, 0.0)
-        e_att = dict.fromkeys(teams, 0.0)
-        s_def = dict.fromkeys(teams, 0.0)
-        e_def = dict.fromkeys(teams, 0.0)
-        for wi, r in zip(w, recs, strict=True):
-            s_att[r.home] += wi * r.hg
-            e_att[r.home] += wi * mu_h * dfn[r.away]
-            s_att[r.away] += wi * r.ag
-            e_att[r.away] += wi * mu_a * dfn[r.home]
-            s_def[r.away] += wi * r.hg
-            e_def[r.away] += wi * mu_h * att[r.home]
-            s_def[r.home] += wi * r.ag
-            e_def[r.home] += wi * mu_a * att[r.away]
-        att = {t: (s_att[t] + shrink * mu) / (e_att[t] + shrink * mu) for t in teams}
-        dfn = {t: (s_def[t] + shrink * mu) / (e_def[t] + shrink * mu) for t in teams}
+        e_att = bc(h, w * mu_h * dfn[a]) + bc(a, w * mu_a * dfn[h])
+        e_def = bc(a, w * mu_h * att[h]) + bc(h, w * mu_a * att[a])
+        att, dfn = (s_att + k) / (e_att + k), (s_def + k) / (e_def + k)  # mise à jour simultanée
+    games = np.bincount(h, minlength=T) + np.bincount(a, minlength=T)
     return Fit(
-        mu_h, mu_a, att, dfn, games, len(recs), {"half_life_days": half_life_days, "shrink": shrink}
+        mu_h,
+        mu_a,
+        dict(zip(team_ids, att.tolist(), strict=True)),
+        dict(zip(team_ids, dfn.tolist(), strict=True)),
+        dict(zip(team_ids, games.tolist(), strict=True)),
+        len(recs),
+        params,
     )
 
 

@@ -50,7 +50,7 @@ def main() -> int:
             )
             print(
                 f"{f.name} [{rep.source_format}] : {rep.created_matches} match(s), {rep.created_teams} équipe(s), "
-                f"{rep.created_competitions} compétition(s), {rep.skipped_duplicates} doublon(s)"
+                f"{rep.created_competitions} compétition(s), {rep.skipped_duplicates} doublon(s), {rep.enriched_odds} jeu(x) de cotes de clôture ajouté(s)"
                 + (" (simulation)" if a.dry_run else "")
             )
             for e in rep.errors[:15]:

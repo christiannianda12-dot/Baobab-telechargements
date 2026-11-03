@@ -48,6 +48,9 @@ STATS = {
     "HTHG": "home_score_ht",
     "HTAG": "away_score_ht",
 }
+# cotes de clôture : moyenne du marché en priorité, sinon Bet365
+CLOSE_COLS = ["close_home", "close_draw", "close_away"]
+CLOSE_SOURCES = [("AvgCH", "AvgCD", "AvgCA"), ("B365CH", "B365CD", "B365CA")]
 NATIVE_HEAD = [
     "date",
     "competition",
@@ -94,7 +97,7 @@ def to_native(
     text = text.lstrip("﻿")
     delim = ";" if text.split("\n", 1)[0].count(";") > text.split("\n", 1)[0].count(",") else ","
     rows = list(csv.DictReader(io.StringIO(text), delimiter=delim))
-    extra = [c for c in STATS.values()]
+    extra = [c for c in STATS.values()] + CLOSE_COLS
     out = io.StringIO()
     w = csv.writer(out, lineterminator="\n")
     w.writerow(NATIVE_HEAD + extra)
@@ -114,5 +117,9 @@ def to_native(
         w.writerow(
             [when, comp, ssn, r.get("HomeTeam", ""), r.get("AwayTeam", ""), hg, ag]
             + [r.get(k, "") for k in STATS]
+            + next(
+                ([r[c] for c in cols] for cols in CLOSE_SOURCES if all(r.get(c) for c in cols)),
+                ["", "", ""],
+            )
         )
     return out.getvalue(), "football-data"

@@ -4,33 +4,45 @@ from app.ml import metrics, poisson
 from app.ml.data import Rec
 
 
-def run(recs: list[Rec], max_matches: int = 2000, **fit_kw) -> dict:
+def walk_forward(recs: list[Rec], max_matches: int = 2000, **fit_kw) -> list[dict]:
+    """Prédit chaque match avec les seuls matchs antérieurs. Retourne une entrée par match évaluable."""
     recs = sorted(recs, key=lambda r: r.when)[-max_matches:]
-    probs, base, outs, p_home, hit_home = [], [], [], [], []
-    skipped = 0
+    out = []
     for i, r in enumerate(recs):
         past = [x for x in recs[:i] if x.when < r.when]
         f = poisson.fit(past, r.when, **fit_kw)
         if poisson.eligibility(f, r.home, r.away):
-            skipped += 1
             continue
         mk = poisson.markets(*poisson.expected_goals(f, r.home, r.away))["1X2"]
-        o = metrics.outcome_index(r.hg, r.ag)
         n = len(past)
-        freq = (
-            sum(x.hg > x.ag for x in past) / n,
-            sum(x.hg == x.ag for x in past) / n,
-            sum(x.hg < x.ag for x in past) / n,
+        out.append(
+            {
+                "rec": r,
+                "outcome": metrics.outcome_index(r.hg, r.ag),
+                "probs": (mk["home"], mk["draw"], mk["away"]),
+                "base": (
+                    sum(x.hg > x.ag for x in past) / n,
+                    sum(x.hg == x.ag for x in past) / n,
+                    sum(x.hg < x.ag for x in past) / n,
+                ),
+            }
         )
-        probs.append((mk["home"], mk["draw"], mk["away"]))
-        base.append(freq)
-        outs.append(o)
-        p_home.append(mk["home"])
-        hit_home.append(o == 0)
+    return out
+
+
+def run(recs: list[Rec], max_matches: int = 2000, **fit_kw) -> dict:
+    total = min(len(recs), max_matches)
+    ev = walk_forward(recs, max_matches, **fit_kw)
+    probs, base, outs = (
+        [e["probs"] for e in ev],
+        [e["base"] for e in ev],
+        [e["outcome"] for e in ev],
+    )
+    p_home, hit_home = [p[0] for p in probs], [o == 0 for o in outs]
     res = {
         "model": f"{poisson.MODEL_NAME}-{poisson.MODEL_VERSION}",
         "evaluated": len(outs),
-        "skipped_insufficient_data": skipped,
+        "skipped_insufficient_data": total - len(outs),
     }
     if len(outs) < 20:
         return {

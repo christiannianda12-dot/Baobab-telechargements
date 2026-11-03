@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field, ValidationError, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Competition, Match, MatchStatistics, Team
+from app.models import Competition, Match, MatchStatistics, Odds, Team
 from app.models.mixins import DataSource
 from app.models.sports import MatchStatus
 from app.services.csv_adapters import to_native
@@ -29,9 +29,15 @@ STAT_FIELDS = {  # suffixe CSV -> colonne MatchStatistics
     "yellow": "yellow_cards",
     "red": "red_cards",
 }
-OPTIONAL = ["season", "home_score_ht", "away_score_ht"] + [
-    f"{side}_{k}" for side in ("home", "away") for k in STAT_FIELDS
-]
+CLOSING_BOOKMAKER = "Clôture (moyenne marché)"
+OPTIONAL = [
+    "season",
+    "home_score_ht",
+    "away_score_ht",
+    "close_home",
+    "close_draw",
+    "close_away",
+] + [f"{side}_{k}" for side in ("home", "away") for k in STAT_FIELDS]
 
 
 class Row(BaseModel):
@@ -45,6 +51,14 @@ class Row(BaseModel):
     home_score_ht: int | None = Field(default=None, ge=0, le=99)
     away_score_ht: int | None = Field(default=None, ge=0, le=99)
     stats: dict[str, dict[str, float | None]] = {}
+    close: tuple[float, float, float] | None = None
+
+    @field_validator("close")
+    @classmethod
+    def _close(cls, v):
+        if v is not None and any(x <= 1 for x in v):
+            raise ValueError("cotes de clôture : toutes doivent être > 1")
+        return v
 
     @field_validator("date")
     @classmethod
@@ -62,6 +76,7 @@ class ImportReport:
     errors: list[dict] = field(default_factory=list)
     dry_run: bool = False
     source_format: str = "native"
+    enriched_odds: int = 0
 
 
 def _num(raw: str | None, as_int: bool):
@@ -105,6 +120,11 @@ def parse(text: str, max_rows: int = MAX_ROWS) -> tuple[list[tuple[int, Row]], l
             for side in ("home", "away"):
                 for k, col in STAT_FIELDS.items():
                     stats[side][col] = _num(d.get(f"{side}_{k}"), as_int=(k != "possession"))
+            close = tuple(
+                _num(d.get(c), as_int=False) for c in ("close_home", "close_draw", "close_away")
+            )
+            if any(x is not None for x in close) and not all(x is not None for x in close):
+                raise ValueError("cotes de clôture : les trois colonnes ensemble ou aucune")
             rows.append(
                 (
                     i,
@@ -119,6 +139,7 @@ def parse(text: str, max_rows: int = MAX_ROWS) -> tuple[list[tuple[int, Row]], l
                         home_score_ht=d.get("home_score_ht") or None,
                         away_score_ht=d.get("away_score_ht") or None,
                         stats=stats,
+                        close=close if close[0] is not None else None,
                     ),
                 )
             )
@@ -133,6 +154,22 @@ def parse(text: str, max_rows: int = MAX_ROWS) -> tuple[list[tuple[int, Row]], l
             )
             errors.append({"line": i, "error": msg})
     return rows, errors
+
+
+def add_closing_odds(db: Session, match_id: int, r: Row) -> None:
+    """Cotes 1X2 de clôture issues du fichier (source : jeu de données importé, jamais inventées)."""
+    for sel, price in zip(("home", "draw", "away"), r.close, strict=True):
+        db.add(
+            Odds(
+                match_id=match_id,
+                bookmaker=CLOSING_BOOKMAKER,
+                market="1X2",
+                selection=sel,
+                price=price,
+                recorded_at=r.date,
+                source=DataSource.MANUAL,
+            )
+        )
 
 
 def import_csv(
@@ -159,7 +196,7 @@ def import_csv(
     comps: dict[tuple[str, str | None], Competition] = {}
     for c in db.scalars(select(Competition)):
         comps.setdefault((c.name.strip().casefold(), c.season), c)
-    seen: set[tuple] = set()
+    seen: dict[tuple, int] = {}
 
     def team(name: str) -> Team:
         key = name.strip().casefold()
@@ -184,7 +221,7 @@ def import_csv(
     for _, r in rows:
         c, h, a = comp(r.competition, r.season), team(r.home_team), team(r.away_team)
         key = (c.id, h.id, a.id, r.date)
-        exists = key in seen or db.scalar(
+        known = seen.get(key) or db.scalar(
             select(Match.id).where(
                 Match.competition_id == c.id,
                 Match.home_team_id == h.id,
@@ -192,10 +229,17 @@ def import_csv(
                 Match.kickoff_at == r.date,
             )
         )
-        if exists:
+        if known:
             rep.skipped_duplicates += 1
+            # enrichissement : un match déjà importé sans cotes de clôture les reçoit
+            if r.close and not db.scalar(
+                select(Odds.id)
+                .where(Odds.match_id == known, Odds.bookmaker == CLOSING_BOOKMAKER)
+                .limit(1)
+            ):
+                add_closing_odds(db, known, r)
+                rep.enriched_odds += 1
             continue
-        seen.add(key)
         m = Match(
             competition_id=c.id,
             home_team_id=h.id,
@@ -210,6 +254,9 @@ def import_csv(
         )
         db.add(m)
         db.flush()
+        seen[key] = m.id
+        if r.close:
+            add_closing_odds(db, m.id, r)
         for side, t in (("home", h), ("away", a)):
             vals = r.stats[side]
             if any(v is not None for v in vals.values()):
