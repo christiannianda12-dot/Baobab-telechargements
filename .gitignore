@@ -26,3 +26,7 @@ out/
 .DS_Store
 .idea/
 .vscode/
+
+# Jeux de données importés (volumineux, licence propre à la source) : jamais committés
+backend/data/import/*.csv
+imports/*.csv

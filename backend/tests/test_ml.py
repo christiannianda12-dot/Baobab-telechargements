@@ -89,3 +89,40 @@ def test_backtest_small_sample_makes_no_claim():
     recs, _ = league()
     res = backtest.run(recs[:40])
     assert res["reliable"] is False and "brier" not in res
+
+
+def test_seasons_of_same_league_are_pooled_but_other_leagues_are_not(db_session):
+    from app.ml.data import load_finished, sibling_ids
+    from app.models import Competition, Match, Team
+    from app.models.mixins import DataSource
+    from app.models.sports import MatchStatus
+
+    s1, s2 = (
+        Competition(name="Ligue Éa", season="2024-2025"),
+        Competition(name="ligue éa", season="2025-2026"),
+    )
+    other = Competition(name="Autre Ligue", season="2025-2026")
+    a, b = Team(name="A"), Team(name="B")
+    db_session.add_all([s1, s2, other, a, b])
+    db_session.flush()
+    for i, c in enumerate([s1, s2, other]):
+        db_session.add(
+            Match(
+                competition_id=c.id,
+                home_team_id=a.id,
+                away_team_id=b.id,
+                kickoff_at=T0 + timedelta(days=i),
+                status=MatchStatus.FINISHED,
+                home_score=1,
+                away_score=0,
+                source=DataSource.MANUAL,
+            )
+        )
+    db_session.commit()
+    assert set(sibling_ids(db_session, s2.id)) == {s1.id, s2.id}  # casse/accents ignorés
+    assert (
+        len(load_finished(db_session, s2.id)) == 2 and len(load_finished(db_session, other.id)) == 1
+    )
+    assert (
+        len(load_finished(db_session, s2.id, before=T0 + timedelta(days=1))) == 1
+    )  # pas de fuite du futur
