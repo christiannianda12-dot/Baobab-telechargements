@@ -4,7 +4,7 @@
 
 Plateforme d'analyse et de prédiction sportive, **locale d'abord**, sans dépendance à Supabase ni à un service payant.
 
-> **État : étape 3 (interface).** Aucune prédiction n'est encore produite. Le moteur statistique sera construit à l'étape 5, après validation.
+> **État : étape 4 (gestion des données sportives).** Aucune prédiction n'est encore produite. Le moteur statistique sera construit à l'étape 5, après validation.
 
 ## Stack
 
@@ -65,9 +65,16 @@ cd frontend && npm install && npm run dev
 | Données (écriture : connecté) | `/teams`, `/competitions`, `/matches` (+ `PATCH` résultat) |
 | Statistiques | `GET /matches/{id}/statistics`, `PUT /matches/{id}/statistics/{team_id}` |
 | Cotes | `POST/GET /matches/{id}/odds`, `GET /matches/{id}/odds/analysis`, `POST /odds/calculate` |
+| Import et analyse | `POST /import/matches` (CSV, `dry_run`), `GET /matches/{id}/analysis` (forme, domicile/extérieur, confrontations directes) |
 | Admin | `GET /admin/users`, `PATCH /admin/users/{id}`, `POST /admin/providers/sync`, `GET /admin/providers` |
 
 Les cotes n'existent que si elles ont été saisies. L'analyse n'applique la correction de marge qu'aux marchés **complets** (1X2, Over/Under, BTTS).
+
+## Données sportives
+
+- **Import CSV** (Administration ou API) : tout-ou-rien, erreurs localisées par ligne, doublons ignorés, cellule vide = donnée absente. Format et modèle : [`docs/PROVIDERS.md`](docs/PROVIDERS.md).
+- **Forme des équipes** calculée à la demande sur les seuls matchs terminés *antérieurs* au coup d'envoi (pas de fuite du futur) ; moyennes de corners/tirs/possession/cartons sur les seuls matchs où la donnée existe (« 2/3 » = 2 matchs sur 3). Avertissement sous 5 matchs.
+- **API externes** : conditions vérifiées, connecteurs volontairement non implémentés sans clé (voir `docs/PROVIDERS.md`).
 
 ## Interface (12 pages)
 

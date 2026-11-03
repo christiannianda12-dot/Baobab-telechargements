@@ -20,6 +20,11 @@ const STAT_ROWS: [string, string][] = [
 const SELECTIONS: Record<string, string[]> = {
   "1X2": ["home", "draw", "away"], DC: ["1X", "12", "X2"], OU: ["over", "under"], BTTS: ["yes", "no"], CORNERS_OU: ["over", "under"],
 };
+type Form = { played: number; results: string[]; wins: number; draws: number; losses: number; goals_for: number; goals_against: number;
+  avg_goals_for: number | null; avg_goals_against: number | null; reliable: boolean;
+  averages: Record<string, { average: number | null; samples: number }> };
+type Analysis = { home: { overall: Form; at_home: Form }; away: { overall: Form; away: Form }; warnings: string[];
+  head_to_head: { played: number; team_a_wins: number; team_b_wins: number; draws: number; team_a_goals: number; team_b_goals: number } };
 const pct = (x: number) => `${(x * 100).toFixed(1)} %`;
 
 export default function MatchDetail() {
@@ -28,6 +33,7 @@ export default function MatchDetail() {
   const match = useApi<Match>(`/matches/${id}`);
   const stats = useApi<Stat[]>(`/matches/${id}/statistics`);
   const odds = useApi<{ markets: Market[] }>(`/matches/${id}/odds/analysis`);
+  const analysis = useApi<Analysis>(`/matches/${id}/analysis`);
 
   if (match.loading) return <Loading what="données du match" />;
   if (match.error || !match.data) return <ErrorBox message={match.error ?? "Match introuvable."} />;
@@ -45,6 +51,19 @@ export default function MatchDetail() {
       <section className="card mb-4">
         <h2 className="mb-2 font-medium">Prédiction</h2>
         <p className="text-sm text-muted">Aucun modèle disponible : le moteur statistique n&apos;est pas encore construit (étape 5). Aucune probabilité n&apos;est affichée.</p>
+      </section>
+
+      <section className="card mb-4">
+        <h2 className="mb-2 font-medium">Forme et confrontations directes</h2>
+        <p className="mb-2 text-xs text-muted">Calculées uniquement sur les matchs terminés enregistrés avant le coup d&apos;envoi.</p>
+        {analysis.loading ? <Loading what="analyses" /> : analysis.data && (<>
+          <FormTable rows={[
+            [`${home} (tous)`, analysis.data.home.overall], [`${home} (domicile)`, analysis.data.home.at_home],
+            [`${away} (tous)`, analysis.data.away.overall], [`${away} (extérieur)`, analysis.data.away.away]]} />
+          <p className="mt-3 text-sm">Confrontations directes : {analysis.data.head_to_head.played === 0 ? "aucune enregistrée." :
+            `${analysis.data.head_to_head.played} match(s) — ${home} ${analysis.data.head_to_head.team_a_wins} V, ${analysis.data.head_to_head.draws} N, ${away} ${analysis.data.head_to_head.team_b_wins} V (buts ${analysis.data.head_to_head.team_a_goals}–${analysis.data.head_to_head.team_b_goals}).`}</p>
+          {analysis.data.warnings.map((w) => <p key={w} className="mt-1 text-xs text-yellow-300">⚠ {w}</p>)}
+        </>)}
       </section>
 
       <section className="card mb-4">
@@ -127,5 +146,23 @@ function ResultForm({ match, onDone }: { match: Match; onDone: () => void }) {
       <button className="btn">Enregistrer</button>
       {err && <div className="col-span-full"><ErrorBox message={err} /></div>}
     </form>
+  );
+}
+
+const AVG: [string, string][] = [["corners", "Corners"], ["shots", "Tirs"], ["possession_pct", "Poss. %"], ["yellow_cards", "Jaunes"]];
+
+function FormTable({ rows }: { rows: [string, Form][] }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[34rem] text-sm">
+        <thead><tr className="text-left text-muted"><th>Équipe</th><th>J</th><th>V-N-D</th><th>Buts</th><th>Moy. +/-</th><th>Série</th>{AVG.map(([, l]) => <th key={l}>{l}</th>)}</tr></thead>
+        <tbody>{rows.map(([label, f]) => (
+          <tr key={label} className="border-t border-border">
+            <td className="py-1 pr-2">{label}</td><td>{f.played}</td><td>{f.wins}-{f.draws}-{f.losses}</td><td>{f.goals_for}:{f.goals_against}</td>
+            <td>{f.avg_goals_for ?? "—"} / {f.avg_goals_against ?? "—"}</td><td className="font-mono">{f.results.join("") || "—"}</td>
+            {AVG.map(([k]) => { const a = f.averages[k]; return <td key={k} title={`${a.samples} match(s) avec donnée`}>{a.average ?? "—"}{a.samples > 0 && a.samples < f.played ? <sup className="text-muted"> {a.samples}/{f.played}</sup> : null}</td>; })}
+          </tr>))}</tbody>
+      </table>
+    </div>
   );
 }

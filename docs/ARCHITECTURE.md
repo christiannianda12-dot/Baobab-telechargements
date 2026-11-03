@@ -35,7 +35,7 @@
 À venir (étapes suivantes) : `backend/app/ml/` (Poisson, Elo, régression logistique, XGBoost, calibration), `backend/app/services/` (cotes, combinés, performance), `backend/app/assistant/` (interface LLM débranchée par défaut), pages frontend.
 
 ## Modèle de données (12 tables)
-`users`, `teams`, `competitions`, `matches`, `match_statistics`, `team_forms`, `odds`, `predictions`, `prediction_results`, `analysis_history`, `api_providers`, `model_versions`.
+`users`, `teams`, `competitions`, `matches`, `match_statistics`, `team_forms` (réservée ; la forme est pour l'instant calculée à la demande), `odds`, `predictions`, `prediction_results`, `analysis_history`, `api_providers`, `model_versions`.
 - Clés étrangères appliquées (SQLite : `PRAGMA foreign_keys=ON`).
 - Contraintes CHECK en base (migration 0002) : cote > 1, scores ≥ 0, possession 0–100, probabilité 0–1, équipes distinctes.
 - `predictions` : toute mise à jour est refusée par une garde ORM. **Limite connue** : la garde ne couvre pas le SQL brut ; un trigger SQL (SQLite + PostgreSQL) sera ajouté à l'étape 7, avec la règle « aucune création après le coup d'envoi ».
@@ -61,7 +61,7 @@ bcrypt, JWT signé (HS256) à expiration, `SECRET_KEY` obligatoire ≥ 32 car. e
 1. ✅ Architecture et environnement local
 2. ✅ Base de données et backend (cotes, statistiques, administration, contraintes d'intégrité, tests SQLite + PostgreSQL)
 3. ✅ Interface et tableau de bord (12 pages, navigation mobile, test E2E)
-4. Gestion des données sportives (import manuel/CSV, connecteurs réels avec clés)
+4. ✅ Gestion des données sportives (import CSV, forme/H2H sans fuite temporelle). Connecteurs API réels : reportés, en attente d'une clé (voir PROVIDERS.md)
 5. Moteur statistique et prédictif
 6. Assistant conversationnel (interface LLM débranchée par défaut)
 7. Historique et évaluation (Brier, Log Loss, ROI)

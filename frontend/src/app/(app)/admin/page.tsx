@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { api, type User } from "@/lib/api";
+import { api, API_URL, type User } from "@/lib/api";
+import { getToken } from "@/lib/session";
 import { useApi } from "@/lib/hooks";
 import { Empty, ErrorBox, Loading, PageTitle, useCatalog } from "@/components/ui";
 
@@ -9,7 +10,7 @@ export default function Admin() {
   const me = useApi<User>("/auth/me");
   if (me.loading) return <Loading />;
   if (me.data?.role !== "admin") return <Empty>Accès réservé aux administrateurs.</Empty>;
-  return (<><PageTitle title="Administration" /><Users meId={me.data.id} /><ManualEntry /></>);
+  return (<><PageTitle title="Administration" /><Users meId={me.data.id} /><CsvImport /><ManualEntry /></>);
 }
 
 function Users({ meId }: { meId: number }) {
@@ -64,6 +65,58 @@ function ManualEntry() {
         <select name="h" required className="input" aria-label="Domicile"><option value="">Domicile…</option>{cat.teams?.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
         <select name="a" required className="input" aria-label="Extérieur"><option value="">Extérieur…</option>{cat.teams?.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
         <input name="k" type="datetime-local" required className="input sm:col-span-2" aria-label="Coup d'envoi" /><button className="btn">Ajouter le match</button></form>
+    </section>
+  );
+}
+
+type Report = { rows: number; created_matches: number; skipped_duplicates: number; created_teams: number; created_competitions: number; dry_run: boolean };
+
+function CsvImport() {
+  const [busy, setBusy] = useState(false);
+  const [report, setReport] = useState<Report | null>(null);
+  const [errors, setErrors] = useState<{ line: number; error: string }[]>([]);
+  const [fatal, setFatal] = useState<string | null>(null);
+
+  async function run(e: React.FormEvent<HTMLFormElement>, dry: boolean) {
+    e.preventDefault();
+    const file = new FormData(e.currentTarget.form ?? e.currentTarget).get("file");
+    if (!(file instanceof File) || !file.size) return setFatal("Choisissez un fichier CSV.");
+    setBusy(true); setReport(null); setErrors([]); setFatal(null);
+    const body = new FormData();
+    body.append("file", file);
+    try {
+      const res = await fetch(`${API_URL}/api/v1/import/matches?dry_run=${dry}`, { method: "POST", body, headers: { Authorization: `Bearer ${getToken()}` } });
+      const j = await res.json();
+      if (res.ok) setReport(j);
+      else if (j.detail?.errors) setErrors(j.detail.errors);
+      else setFatal(typeof j.detail === "string" ? j.detail : "Import refusé.");
+    } catch { setFatal("API injoignable."); }
+    setBusy(false);
+  }
+
+  return (
+    <section className="card mb-4">
+      <h2 className="mb-1 font-medium">Import CSV de matchs terminés</h2>
+      <p className="mb-3 text-xs text-muted">
+        Tout-ou-rien : une seule ligne invalide annule l&apos;import. Cellule vide = donnée absente (jamais 0). Équipes et compétitions manquantes sont créées.{" "}
+        <a className="text-accent underline" href="/modele-matchs.csv" download>Télécharger le modèle (en-têtes)</a>
+      </p>
+      <form className="flex flex-wrap items-center gap-2">
+        <input name="file" type="file" accept=".csv,text/csv" className="input max-w-xs" aria-label="Fichier CSV" />
+        <button type="button" className="btn-ghost" disabled={busy} onClick={(e) => run(e as never, true)}>Vérifier sans importer</button>
+        <button type="button" className="btn" disabled={busy} onClick={(e) => run(e as never, false)}>Importer</button>
+      </form>
+      {fatal && <div className="mt-3"><ErrorBox message={fatal} /></div>}
+      {report && (
+        <p className="mt-3 text-sm text-accent">
+          {report.dry_run ? "Vérification réussie (rien écrit) : " : "Import terminé : "}
+          {report.created_matches} match(s), {report.created_teams} équipe(s), {report.created_competitions} compétition(s) créés ; {report.skipped_duplicates} doublon(s) ignoré(s).
+        </p>
+      )}
+      {errors.length > 0 && (
+        <div className="mt-3"><ErrorBox message={`${errors.length} erreur(s) — aucune ligne importée.`} />
+          <ul className="mt-2 max-h-48 overflow-auto text-xs text-red-300">{errors.slice(0, 50).map((x) => <li key={x.line}>Ligne {x.line} : {x.error}</li>)}</ul></div>
+      )}
     </section>
   );
 }
