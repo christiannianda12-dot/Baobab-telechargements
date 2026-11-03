@@ -17,11 +17,15 @@ from app.main import app  # noqa: E402
 
 @pytest.fixture
 def db_session():
-    engine = make_engine("sqlite://")
+    """SQLite en mémoire par défaut ; PostgreSQL si TEST_DATABASE_URL est défini."""
+    url = os.environ.get("TEST_DATABASE_URL", "sqlite://")
+    engine = make_engine(url)
+    Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     session = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)()
     yield session
     session.close()
+    Base.metadata.drop_all(engine)
     engine.dispose()
 
 

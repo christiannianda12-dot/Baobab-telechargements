@@ -37,11 +37,12 @@
 ## Modèle de données (12 tables)
 `users`, `teams`, `competitions`, `matches`, `match_statistics`, `team_forms`, `odds`, `predictions`, `prediction_results`, `analysis_history`, `api_providers`, `model_versions`.
 - Clés étrangères appliquées (SQLite : `PRAGMA foreign_keys=ON`).
+- Contraintes CHECK en base (migration 0002) : cote > 1, scores ≥ 0, possession 0–100, probabilité 0–1, équipes distinctes.
 - `predictions` : toute mise à jour est refusée par une garde ORM. **Limite connue** : la garde ne couvre pas le SQL brut ; un trigger SQL (SQLite + PostgreSQL) sera ajouté à l'étape 7, avec la règle « aucune création après le coup d'envoi ».
 - Les clés API ne sont jamais stockées en base (variables d'environnement uniquement).
 
 ## Portabilité PostgreSQL
-SQLAlchemy 2 + Alembic en mode batch + conventions de nommage des contraintes. Passage : installer `psycopg[binary]`, changer `DATABASE_URL`, relancer `alembic upgrade head`. À valider par des tests sur un vrai PostgreSQL avant la production (non testé à ce stade).
+SQLAlchemy 2 + Alembic en mode batch + conventions de nommage des contraintes. Passage : installer `psycopg[binary]`, changer `DATABASE_URL`, relancer `alembic upgrade head`. **Validé** : migrations (aller-retour) et suite de tests complète passées sur PostgreSQL 16 (`TEST_DATABASE_URL`). Reste à faire : CI automatisée avec PostgreSQL.
 
 ## Sécurité (état actuel)
 bcrypt, JWT signé (HS256) à expiration, `SECRET_KEY` obligatoire ≥ 32 car. en production, limitation de débit sur login/inscription (en mémoire : instance unique), CORS restreint, docs API masquées en production, temps de réponse égalisé sur login. **À faire** : révocation/rafraîchissement de jetons, limiteur partagé (Redis) en production, en-têtes de sécurité côté reverse proxy.
@@ -58,7 +59,7 @@ bcrypt, JWT signé (HS256) à expiration, `SECRET_KEY` obligatoire ≥ 32 car. e
 
 ## Feuille de route
 1. ✅ Architecture et environnement local
-2. Base de données et backend complets (cotes, stats, utilisateurs/admin, seed manuel)
+2. ✅ Base de données et backend (cotes, statistiques, administration, contraintes d'intégrité, tests SQLite + PostgreSQL)
 3. Interface et tableau de bord (12 pages, navigation mobile)
 4. Gestion des données sportives (import manuel/CSV, connecteurs réels avec clés)
 5. Moteur statistique et prédictif

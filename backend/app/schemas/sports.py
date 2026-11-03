@@ -60,3 +60,14 @@ class MatchOut(_Out):
     home_score: int | None
     away_score: int | None
     source: DataSource
+
+
+class MatchUpdate(BaseModel):
+    """Mise à jour d'un match (résultat, statut, horaire). Champs omis = inchangés."""
+
+    kickoff_at: datetime | None = None
+    status: MatchStatus | None = None
+    home_score: int | None = Field(default=None, ge=0, le=99)
+    away_score: int | None = Field(default=None, ge=0, le=99)
+    home_score_ht: int | None = Field(default=None, ge=0, le=99)
+    away_score_ht: int | None = Field(default=None, ge=0, le=99)

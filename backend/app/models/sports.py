@@ -1,7 +1,16 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import Enum, Float, ForeignKey, Index, Integer, String, UniqueConstraint
+from sqlalchemy import (
+    CheckConstraint,
+    Enum,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -46,7 +55,12 @@ class Competition(_Sourced, Base):
 
 class Match(_Sourced, Base):
     __tablename__ = "matches"
-    __table_args__ = (Index("ix_matches_kickoff_at", "kickoff_at"),)
+    __table_args__ = (
+        Index("ix_matches_kickoff_at", "kickoff_at"),
+        CheckConstraint("home_team_id <> away_team_id", name="distinct_teams"),
+        CheckConstraint("home_score IS NULL OR home_score >= 0", name="home_score_pos"),
+        CheckConstraint("away_score IS NULL OR away_score >= 0", name="away_score_pos"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     competition_id: Mapped[int] = mapped_column(ForeignKey("competitions.id"))
@@ -72,6 +86,9 @@ class MatchStatistics(CreatedAtMixin, Base):
     __tablename__ = "match_statistics"
     __table_args__ = (
         UniqueConstraint("match_id", "team_id", name="uq_match_statistics_match_team"),
+        CheckConstraint(
+            "possession_pct IS NULL OR (possession_pct BETWEEN 0 AND 100)", name="possession_range"
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

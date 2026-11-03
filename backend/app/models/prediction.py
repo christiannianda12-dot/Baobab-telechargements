@@ -1,7 +1,18 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, Enum, Float, ForeignKey, Index, String, Text, event
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    CheckConstraint,
+    Enum,
+    Float,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    event,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -24,7 +35,11 @@ class Prediction(CreatedAtMixin, Base):
     """Prédiction horodatée et IMMUABLE (voir garde ci-dessous)."""
 
     __tablename__ = "predictions"
-    __table_args__ = (Index("ix_predictions_match", "match_id"),)
+    __table_args__ = (
+        Index("ix_predictions_match", "match_id"),
+        CheckConstraint("probability BETWEEN 0 AND 1", name="probability_range"),
+        CheckConstraint("observed_odds IS NULL OR observed_odds > 1", name="observed_odds_gt_1"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     match_id: Mapped[int] = mapped_column(ForeignKey("matches.id"))

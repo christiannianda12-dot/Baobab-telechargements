@@ -1,4 +1,4 @@
-.PHONY: install backend-install frontend-install migrate api web test lint backup
+.PHONY: test-pg install backend-install frontend-install migrate api web test lint backup
 
 install: backend-install frontend-install
 
@@ -26,3 +26,7 @@ lint:
 
 backup:
 	cd backend && . .venv/bin/activate && python ../scripts/backup_db.py
+
+# Tests sur PostgreSQL : TEST_DATABASE_URL=postgresql+psycopg://user:pass@localhost:5432/predix_test make test-pg
+test-pg:
+	cd backend && . .venv/bin/activate && pip install -q -r requirements-postgres.txt && python -m pytest

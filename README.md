@@ -4,7 +4,7 @@
 
 Plateforme d'analyse et de prédiction sportive, **locale d'abord**, sans dépendance à Supabase ni à un service payant.
 
-> **État : étape 1 (fondations).** Aucune prédiction n'est encore produite. Le moteur statistique sera construit à l'étape 5, après validation.
+> **État : étape 2 (base de données et backend).** Aucune prédiction n'est encore produite. Le moteur statistique sera construit à l'étape 5, après validation.
 
 ## Stack
 
@@ -54,6 +54,25 @@ pip install -r requirements-dev.txt && alembic upgrade head
 uvicorn app.main:app --reload --port 8000
 # autre terminal
 cd frontend && npm install && npm run dev
+```
+
+## API disponible (`/docs` pour le détail)
+
+| Domaine | Routes |
+|---|---|
+| Système | `GET /health`, `GET /system/info` |
+| Auth | `POST /auth/register`, `POST /auth/login`, `GET /auth/me` |
+| Données (écriture : connecté) | `/teams`, `/competitions`, `/matches` (+ `PATCH` résultat) |
+| Statistiques | `GET /matches/{id}/statistics`, `PUT /matches/{id}/statistics/{team_id}` |
+| Cotes | `POST/GET /matches/{id}/odds`, `GET /matches/{id}/odds/analysis`, `POST /odds/calculate` |
+| Admin | `GET /admin/users`, `PATCH /admin/users/{id}`, `POST /admin/providers/sync`, `GET /admin/providers` |
+
+Les cotes n'existent que si elles ont été saisies. L'analyse n'applique la correction de marge qu'aux marchés **complets** (1X2, Over/Under, BTTS).
+
+## Tests PostgreSQL
+
+```bash
+TEST_DATABASE_URL=postgresql+psycopg://user:pass@localhost:5432/predix_test make test-pg
 ```
 
 ## Sauvegarde

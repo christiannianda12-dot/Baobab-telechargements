@@ -12,6 +12,7 @@ from app.schemas.sports import (
     CompetitionOut,
     MatchCreate,
     MatchOut,
+    MatchUpdate,
     TeamCreate,
     TeamOut,
 )
@@ -88,3 +89,17 @@ def create_match(payload: MatchCreate, db: DbDep, _: CurrentUser):
         if db.get(model, pk) is None:
             raise HTTPException(422, f"{label} inconnue.")
     return _create(db, Match(**payload.model_dump(), source=DataSource.MANUAL), "Ce match")
+
+
+@router.patch("/matches/{match_id}", response_model=MatchOut)
+def update_match(match_id: int, payload: MatchUpdate, db: DbDep, _: CurrentUser):
+    match = db.get(Match, match_id)
+    if not match:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Match introuvable.")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(match, field, value)
+    if (match.home_score is None) != (match.away_score is None):
+        db.rollback()
+        raise HTTPException(422, "Les deux scores doivent être renseignés ensemble.")
+    db.commit()
+    return match
