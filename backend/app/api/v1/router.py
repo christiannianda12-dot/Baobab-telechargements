@@ -1,6 +1,18 @@
 from fastapi import APIRouter
 
-from app.api.v1 import admin, auth, data, health, models, odds, sports, stats, tracking
+from app.api.v1 import (
+    admin,
+    assistant,
+    auth,
+    combos,
+    data,
+    health,
+    models,
+    odds,
+    sports,
+    stats,
+    tracking,
+)
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(health.router)
@@ -12,3 +24,5 @@ api_router.include_router(admin.router)
 api_router.include_router(data.router)
 api_router.include_router(models.router)
 api_router.include_router(tracking.router)
+api_router.include_router(combos.router)
+api_router.include_router(assistant.router)

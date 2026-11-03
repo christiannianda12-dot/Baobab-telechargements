@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     data_mode: DataMode = DataMode.MANUAL
     auth_rate_limit_per_minute: int = Field(default=10, ge=1)
 
+    # Modèle de langage (optionnel). Aucun connecteur implémenté : la clé est ignorée tant qu'il n'existe pas.
+    llm_provider: str = ""
+    llm_api_key: str = ""
+
     # Fournisseurs externes : désactivés tant que la clé est vide.
     api_football_key: str = ""
     api_football_base_url: str = "https://v3.football.api-sports.io"

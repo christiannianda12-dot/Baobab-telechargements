@@ -4,7 +4,7 @@
 
 Plateforme d'analyse et de prédiction sportive, **locale d'abord**, sans dépendance à Supabase ni à un service payant.
 
-> **État : étape 7 (historique et évaluation) ; étape 6 (assistant) non commencée.** Aucune prédiction n'est encore produite. Le moteur statistique sera construit à l'étape 5, après validation.
+> **État : étapes 1 à 7 faites. Reste : modèles avancés (données réelles requises) et étape 8 (sécurisation, déploiement).** Aucune prédiction n'est encore produite. Le moteur statistique sera construit à l'étape 5, après validation.
 
 ## Stack
 
@@ -68,9 +68,16 @@ cd frontend && npm install && npm run dev
 | Import et analyse | `POST /import/matches` (CSV, `dry_run`), `GET /matches/{id}/analysis` (forme, domicile/extérieur, confrontations directes) |
 | Moteur | `GET /matches/{id}/prediction`, `GET /competitions/{id}/elo`, `GET /competitions/{id}/backtest` |
 | Historique | `POST /matches/{id}/predictions` (enregistrement immuable), `GET /predictions`, `POST /predictions/settle`, `GET /performance` |
+| Assistant et combinés | `POST /assistant/chat`, `GET /assistant/status`, `POST /combos/analyze`, `POST /combos/suggest` |
 | Admin | `GET /admin/users`, `PATCH /admin/users/{id}`, `POST /admin/providers/sync`, `GET /admin/providers` |
 
 Les cotes n'existent que si elles ont été saisies. L'analyse n'applique la correction de marge qu'aux marchés **complets** (1X2, Over/Under, BTTS).
+
+## Assistant et combinés
+
+- **Assistant en mode règles** : il détecte l'intention (analyse d'un match, comparaison de deux équipes, marchés les plus probables / à valeur, combiné), interroge les données et le moteur, et rédige sa réponse **uniquement** à partir de ces résultats. Équipe inconnue, match absent ou historique insuffisant : il le dit au lieu de répondre.
+- **Aucun modèle de langage n'est connecté** et l'interface l'affiche. L'architecture (`backend/app/assistant/llm.py`) prévoit un connecteur (Claude, GPT…) qui ne ferait que *reformuler* une réponse déjà calculée ; sans connecteur implémenté, `LLM_API_KEY` est ignorée.
+- **Combinés** : probabilité conjointe **exacte** (matrice de scores) pour plusieurs sélections d'un même match, produit pour des matchs différents (hypothèse d'indépendance annoncée) ; sélections incompatibles refusées ; avertissements (> 4 jambes, < 10 %, historique court, cote totale non applicable aux sélections corrélées). La « suggestion » privilégie la **probabilité**, pas la valeur, et le dit.
 
 ## Historique vérifiable et performance
 

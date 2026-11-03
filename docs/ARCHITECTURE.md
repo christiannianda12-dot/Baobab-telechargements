@@ -63,6 +63,6 @@ bcrypt, JWT signé (HS256) à expiration, `SECRET_KEY` obligatoire ≥ 32 car. e
 3. ✅ Interface et tableau de bord (12 pages, navigation mobile, test E2E)
 4. ✅ Gestion des données sportives (import CSV, forme/H2H sans fuite temporelle). Connecteurs API réels : reportés, en attente d'une clé (voir PROVIDERS.md)
 5. ◐ Moteur statistique — palier 1 fait : Poisson, Elo, métriques, backtest. Reporté (nécessite un historique réel) : régression logistique, XGBoost, recalibration (isotonique/Platt), corners, mi-temps. 
-6. Assistant conversationnel (interface LLM débranchée par défaut)
+6. ✅ Assistant conversationnel en mode règles + générateur de combinés (interface LLM prévue, non branchée : rien n'est simulé)
 7. ✅ Historique et évaluation (enregistrement immuable par déclencheurs SQL, règlement, Brier/Log Loss/ROI) (Brier, Log Loss, ROI)
 8. Tests, sécurisation, déploiement
