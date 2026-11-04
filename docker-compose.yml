@@ -1,0 +1,46 @@
+# Pile complète : PostgreSQL + API + web. Usage : cp .env.example .env (renseigner SECRET_KEY, POSTGRES_PASSWORD) puis
+#   docker compose up --build
+# Production : placer un reverse proxy HTTPS devant (même domaine pour web et API) et voir docs/DEPLOYMENT.md.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: predix
+      POSTGRES_DB: predix
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?définir POSTGRES_PASSWORD dans .env}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U predix -d predix"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build: ./backend
+    depends_on:
+      db: {condition: service_healthy}
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      SECRET_KEY: ${SECRET_KEY:?définir SECRET_KEY (>= 32 caractères) dans .env}
+      DATABASE_URL: postgresql+psycopg://predix:${POSTGRES_PASSWORD}@db:5432/predix
+      CORS_ORIGINS: ${CORS_ORIGINS:?définir CORS_ORIGINS (origine du site web) dans .env}
+      COOKIE_SECURE: ${COOKIE_SECURE:-}   # laisser vide en HTTPS (=true en production) ; false pour un essai local en HTTP
+      TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-false}
+      DATA_MODE: ${DATA_MODE:-manual}
+      API_FOOTBALL_KEY: ${API_FOOTBALL_KEY:-}
+      ODDS_API_KEY: ${ODDS_API_KEY:-}
+    ports: ["8000:8000"]
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    depends_on: [api]
+    ports: ["3000:3000"]
+    restart: unless-stopped
+
+volumes:
+  pgdata:

@@ -1,0 +1,35 @@
+# Secrets et configuration locale
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.coverage
+
+# Bases de données et sauvegardes locales
+backend/data/*.db
+backend/data/*.db-*
+backend/data/backups/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# OS / éditeurs
+.DS_Store
+.idea/
+.vscode/
+
+# Jeux de données importés (volumineux, licence propre à la source) : jamais committés
+backend/data/import/*.csv
+imports/*.csv
+sauvegardes/
+donnees/
+.env.local

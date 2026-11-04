@@ -1,0 +1,45 @@
+name: CI
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: {POSTGRES_USER: predix, POSTGRES_PASSWORD: predix, POSTGRES_DB: predix_test}
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U predix" --health-interval 5s --health-timeout 3s --health-retries 10
+    defaults:
+      run: {working-directory: backend}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.13", cache: pip}
+      - run: pip install -r requirements-dev.txt -r requirements-postgres.txt pip-audit
+      - run: ruff check .
+      - name: Tests SQLite
+        run: python -m pytest
+      - name: Tests PostgreSQL
+        run: python -m pytest
+        env: {TEST_DATABASE_URL: "postgresql+psycopg://predix:predix@localhost:5432/predix_test"}
+      - name: Audit des dépendances
+        run: pip-audit -r requirements.txt
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run: {working-directory: frontend}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22, cache: npm, cache-dependency-path: frontend/package-lock.json}
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Audit des dépendances de production
+        run: npm audit --omit=dev --audit-level=high

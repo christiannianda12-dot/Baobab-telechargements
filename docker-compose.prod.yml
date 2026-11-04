@@ -1,0 +1,69 @@
+# Production sur un serveur à vous : Caddy (HTTPS) -> web + api -> PostgreSQL. Seuls les ports 80/443 sont exposés.
+# Usage : ./scripts/deploy.sh   (lit .env ; voir docs/DEPLOYMENT.md)
+services:
+  caddy:
+    image: caddy:2-alpine
+    depends_on: [web, api]
+    environment:
+      DOMAIN: ${DOMAIN:?définir DOMAIN (ex. predix.exemple.com) dans .env}
+    ports: ["80:80", "443:443", "443:443/udp"]
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: predix
+      POSTGRES_DB: predix
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?définir POSTGRES_PASSWORD dans .env}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U predix -d predix"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build: ./backend
+    depends_on:
+      db: {condition: service_healthy}
+    environment:
+      ENVIRONMENT: production
+      SECRET_KEY: ${SECRET_KEY:?définir SECRET_KEY (>= 32 caractères) dans .env}
+      DATABASE_URL: postgresql+psycopg://predix:${POSTGRES_PASSWORD}@db:5432/predix
+      CORS_ORIGINS: https://${DOMAIN}
+      TRUST_PROXY_HEADERS: "true"   # l'API n'est joignable que par Caddy (réseau interne)
+      DATA_MODE: ${DATA_MODE:-manual}
+      API_FOOTBALL_KEY: ${API_FOOTBALL_KEY:-}
+      ODDS_API_KEY: ${ODDS_API_KEY:-}
+    volumes: ["./imports:/imports:ro"]   # déposer ici vos CSV d'historique
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: https://${DOMAIN}
+    depends_on: [api]
+    restart: unless-stopped
+
+  backup:
+    image: postgres:16-alpine
+    depends_on:
+      db: {condition: service_healthy}
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+    volumes: ["./backups:/backups"]
+    # Sauvegarde PostgreSQL (format custom) au démarrage puis toutes les 24 h ; les archives de plus de KEEP_DAYS jours sont supprimées.
+    entrypoint: ["sh", "-c", "while true; do pg_dump -h db -U predix -Fc -f /backups/predix-$$(date +%Y%m%d-%H%M%S).dump predix && find /backups -name 'predix-*.dump' -mtime +$$KEEP_DAYS -delete; sleep 86400; done"]
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

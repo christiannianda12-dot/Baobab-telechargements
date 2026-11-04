@@ -1,0 +1,27 @@
+# Usage INTERNE gratuit : tout sur votre ordinateur, accessible depuis le téléphone (même Wi-Fi).
+# Lancement : double-clic sur Demarrer-PREDIX.bat (Windows) ou ./demarrer.sh (Mac/Linux). Voir docs/UTILISATION_LOCALE.md
+name: predix
+services:
+  api:
+    build: ./backend
+    environment:
+      ENVIRONMENT: development
+      SECRET_KEY: "${SECRET_KEY:?SECRET_KEY manquant - utiliser Demarrer-PREDIX.bat qui le génère}"
+      DATABASE_URL: sqlite:////app/data/predix.db
+      ALLOW_LAN_ORIGINS: "true"     # accepte le site ouvert via l'adresse IP du PC sur le réseau local
+      CORS_ORIGINS: http://localhost:3000
+    volumes:
+      - predixdata:/app/data          # base SQLite + sauvegardes
+      - ./imports:/imports:ro         # déposer ici les CSV d'historique (facultatif)
+    restart: unless-stopped            # redémarre avec Docker Desktop
+  web:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: same-origin
+        API_INTERNAL_URL: http://api:8000
+    depends_on: [api]
+    ports: ["3000:3000"]               # seul point d'entrée : l'API n'est pas exposée directement
+    restart: unless-stopped
+volumes:
+  predixdata:
