@@ -1,9 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { api, type Match } from "@/lib/api";
 import { dayStart, useApi } from "@/lib/hooks";
 import { Empty, ErrorBox, Loading, PageTitle, useCatalog } from "@/components/ui";
+import { Alert, Hint, SkeletonList, Tabs } from "@/components/kit";
+import { useApi as useApi2 } from "@/lib/hooks";
+import { fmtDateTime } from "@/components/kit";
 
 type Leg = { match_id: number; market: string; selection: string; line: number | null };
 type Result = {
@@ -19,7 +23,7 @@ const OPTIONS: [string, string, string, number | null][] = [
 const LABEL: Record<string, string> = { home: "Victoire domicile", draw: "Nul", away: "Victoire extérieur", "1X": "Domicile ou nul", "12": "Domicile ou extérieur", X2: "Nul ou extérieur", over: "Plus de", under: "Moins de", yes: "Les 2 équipes marquent", no: "Pas les 2 équipes" };
 const pc = (x?: number | null) => (x == null ? "—" : `${(x * 100).toFixed(1)} %`);
 
-export default function Combos() {
+function CustomCombo() {
   const cat = useCatalog();
   const upcoming = useApi<Match[]>(`/matches?date_from=${encodeURIComponent(dayStart(0))}&limit=200`);
   const [legs, setLegs] = useState<Leg[]>([]);
@@ -46,7 +50,7 @@ export default function Combos() {
 
   return (
     <>
-      <PageTitle title="Générateur de combinés" subtitle="Les sélections d'un même match sont corrélées : leur probabilité conjointe est calculée exactement, jamais par simple produit." />
+
       {upcoming.loading ? <Loading what="matchs" /> : !upcoming.data?.length ? <Empty>Aucun match à venir enregistré.</Empty> : (<>
         <section className="card mb-4">
           <h2 className="mb-2 font-medium">Ajouter une sélection</h2>
@@ -90,6 +94,57 @@ export default function Combos() {
           {res.selection_rule && <p className="mt-2 text-xs text-muted">{res.selection_rule}</p>}
           <ul className="mt-3 space-y-1 text-xs text-yellow-200">{res.warnings?.map((w) => <li key={w}>⚠ {w}</li>)}</ul>
         </section>)}
+    </>
+  );
+}
+
+type PLeg = { match_id: number; match: string; league: string | null; kickoff_at: string; label: string; odds: number; bookmaker: string; bookmakers: number; avg_odds: number;
+  p_model: number | null; p_market: number | null; p_final: number; edge: number; basis: string };
+type Proposal = { legs: PLeg[]; total_odds: number; joint_probability: number; expected_value: number; risk: string; notes: string[] };
+type Resp = { label: string; blurb: string; horizon_days: number; candidates: number; weights: { marche: number; modele: number }; proposals: Proposal[]; empty_reason: string | null };
+type Profile = "prudent" | "equilibre" | "ambitieux";
+const pc1 = (x: number | null) => (x == null ? "—" : `${(x * 100).toFixed(0)} %`);
+const RISK: Record<string, string> = { faible: "border-accent/50 text-accent", "modéré": "border-yellow-500/50 text-yellow-300", "élevé": "border-red-500/50 text-red-300" };
+
+function Proposed() {
+  const [profile, setProfile] = useState<Profile>("equilibre");
+  const [days, setDays] = useState(3);
+  const { data, loading, error } = useApi2<Resp>(`/combos/proposals?profile=${profile}&days=${days}`, { refreshMs: 120000 });
+  return (
+    <>
+      <Alert kind="info">Les combinés sont construits à partir des <b>meilleures cotes</b> trouvées entre bookmakers et d&apos;une probabilité qui mélange le marché (70 %) et notre modèle (30 %). La <b>valeur espérée</b> est affichée telle quelle, même négative : un combiné très probable n&apos;est pas forcément rentable.<Hint>Plus il y a de sélections, plus la probabilité chute. Même un combiné « prudent » perd souvent. Ne misez que ce que vous pouvez perdre.</Hint></Alert>
+      <Tabs value={profile} onChange={setProfile} tabs={[{ id: "prudent", label: "Prudent" }, { id: "equilibre", label: "Équilibré" }, { id: "ambitieux", label: "Ambitieux" }]} />
+      <div className="mb-4 flex flex-wrap items-center gap-3 text-sm"><span className="text-muted">{data?.blurb}</span>
+        <label className="ml-auto flex items-center gap-2">Horizon <select className="input w-auto" value={days} onChange={(e) => setDays(Number(e.target.value))} aria-label="Horizon en jours">{[1, 2, 3, 5, 7].map((d) => <option key={d} value={d}>{d} jour{d > 1 ? "s" : ""}</option>)}</select></label></div>
+      {error && <ErrorBox message={error} />}
+      {loading ? <SkeletonList rows={3} /> : !data?.proposals.length ? <Empty>{data?.empty_reason ?? "Aucune proposition."}</Empty> : (
+        <div className="space-y-4">{data.proposals.map((p, i) => (
+          <article key={i} className="card">
+            <header className="mb-3 flex flex-wrap items-center gap-3">
+              <span className="text-2xl font-semibold">× {p.total_odds.toFixed(2)}</span>
+              <span className="text-sm text-muted">probabilité conjointe <b className="text-foreground">{pc1(p.joint_probability)}</b></span>
+              <span className={`text-sm ${p.expected_value >= 0 ? "text-accent" : "text-red-300"}`}>valeur espérée {(p.expected_value * 100).toFixed(1)} %</span>
+              <span className={`badge ml-auto ${RISK[p.risk] ?? ""}`}>risque {p.risk}</span>
+            </header>
+            <div className="overflow-x-auto"><table className="tbl min-w-[34rem]"><thead><tr><th>Match</th><th>Sélection</th><th>Cote</th><th>Proba</th><th>Pourquoi</th></tr></thead><tbody>
+              {p.legs.map((l) => (
+                <tr key={l.match_id}><td><Link href={`/matches/${l.match_id}`} className="hover:text-accent">{l.match}</Link><span className="block text-[11px] text-muted">{l.league} · {fmtDateTime(l.kickoff_at)}</span></td>
+                  <td>{l.label}</td><td><b>{l.odds.toFixed(2)}</b><span className="block text-[11px] text-muted">{l.bookmaker} · moy. {l.avg_odds.toFixed(2)} ({l.bookmakers} sources)</span></td>
+                  <td>{pc1(l.p_final)}</td><td className="text-[11px] text-muted">marché {pc1(l.p_market)}{l.p_model != null && <> · modèle {pc1(l.p_model)}</>}<span className="block">{l.basis}</span></td></tr>))}
+            </tbody></table></div>
+            <ul className="mt-3 list-disc space-y-0.5 pl-5 text-xs text-muted">{p.notes.map((n) => <li key={n}>{n}</li>)}</ul>
+          </article>))}</div>)}
+    </>
+  );
+}
+
+export default function Combos() {
+  const [tab, setTab] = useState<"proposed" | "custom">("proposed");
+  return (
+    <>
+      <PageTitle title="Combinés" subtitle="Des propositions analysées, ou construisez le vôtre." />
+      <Tabs value={tab} onChange={setTab} tabs={[{ id: "proposed", label: "Proposés pour vous" }, { id: "custom", label: "Construire mon combiné" }]} />
+      {tab === "proposed" ? <Proposed /> : <CustomCombo />}
     </>
   );
 }

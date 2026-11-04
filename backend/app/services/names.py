@@ -112,9 +112,9 @@ def resolve_existing(key: str, known: dict) -> tuple[object, str] | None:
     Règles prudentes, dans l'ordre : nom exact, table d'alias connus, mêmes mots hors « FC/CF/Club… », abréviation (unique)."""
     if key in known:
         return known[key], "exact"
-    if (target := KNOWN_ALIASES.get(key)) and target in known:
-        return known[target], "alias connu"
     sk = strip_key(key)
+    if (target := KNOWN_ALIASES.get(key) or _ALIASES_STRIPPED.get(sk)) and target in known:
+        return known[target], "alias connu"
     same = {id(known[k]): known[k] for k in known if strip_key(k) == sk}
     if len(same) == 1:
         return next(iter(same.values())), "même nom hors préfixe/suffixe"
@@ -122,3 +122,7 @@ def resolve_existing(key: str, known: dict) -> tuple[object, str] | None:
     if len(abbr) == 1:
         return next(iter(abbr.values())), "abréviation"
     return None
+
+
+# mêmes alias, indexés par le nom sans « FC / CF / Club… » : « west ham united » retrouve « west ham united fc »
+_ALIASES_STRIPPED = {strip_key(k): v for k, v in KNOWN_ALIASES.items()}

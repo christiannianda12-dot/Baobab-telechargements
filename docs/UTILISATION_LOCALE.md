@@ -37,6 +37,14 @@ Cliquez sur **S'inscrire**. **Le premier compte créé devient administrateur.**
 3. Pour garder les données à jour : **« Tout mettre à jour »** (résultats récents + prochains matchs avec cotes). Une fois par semaine suffit.
 4. Après un import, jetez un œil à l'onglet **Qualité** : il liste ce qui mérite vérification. L'onglet **Équipes** propose de fusionner les doublons, et **Historique des imports** permet d'annuler un import erroné.
 
+## 5 ter. Tout automatiser
+1. Menu **Paramètres → Automatisation** : laissez « Mise à jour automatique » cochée (toutes les 6 h par défaut) et « Enregistrer automatiquement les prédictions ».
+2. Tant que le PC est allumé et Docker ouvert, l'application télécharge seule les résultats, le calendrier et les cotes. La **barre du haut** montre la dernière mise à jour ; « Mettre à jour maintenant » force un cycle.
+3. **Coupes européennes** : Centre de données → Championnats → groupe « Coupes européennes (UEFA) » → Ajouter.
+4. **Plus de cotes (facultatif)** : créez un compte gratuit sur https://the-odds-api.com, copiez la clé reçue par e-mail dans *Paramètres → Automatisation → Cotes de plus de bookmakers*, « Tester la clé ». L'application ne fait que lire les cotes (quota gratuit limité : environ 500 requêtes par mois).
+5. **Combinés** : menu *Combinés → Proposés pour vous*. Lisez toujours la valeur espérée et vérifiez les cotes chez votre bookmaker.
+6. Un championnat « refusé » ? Dans *Centre de données*, cliquez sur **Copier le diagnostic** et envoyez-le moi : il contient l'adresse, le code de réponse et la ligne en cause.
+
 ## 6. Utiliser depuis le téléphone
 1. Le téléphone doit être connecté au **même Wi-Fi** que le PC, qui doit être allumé.
 2. Notez l'adresse IPv4 du PC (affichée à la fin du démarrage, par exemple `192.168.1.25`).

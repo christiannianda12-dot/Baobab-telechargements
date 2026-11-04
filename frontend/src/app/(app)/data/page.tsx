@@ -6,10 +6,10 @@ import { useApi } from "@/lib/hooks";
 import { Alert, LevelBadge, SkeletonList, Tabs, useConfirm, useToast, ago, fmtDateTime } from "@/components/kit";
 import { Empty, PageTitle } from "@/components/ui";
 
-type Item = { code: string; name: string; country: string; kind: "main" | "extra"; followed: boolean; last_update_at: string | null; last_status: string | null };
-type JobResult = { label: string; status: "ok" | "erreur" | "absent"; created?: number; updated?: number; skipped?: number; warnings?: string[]; message?: string };
+type Item = { code: string; name: string; country: string; kind: "main" | "extra" | "cup"; followed: boolean; last_update_at: string | null; last_status: string | null };
+type JobResult = { label: string; status: "ok" | "erreur" | "absent"; created?: number; updated?: number; skipped?: number; ignored?: number; ignored_sample?: string[]; auto_matched?: number; warnings?: string[]; message?: string; url?: string };
 type Job = { status: "running" | "done" | "error"; progress?: string; results?: JobResult[]; message?: string };
-type Report = { rows: number; created_matches: number; updated_matches: number; skipped_duplicates: number; created_teams: number; created_competitions: number; enriched_odds: number; warnings: string[]; dry_run: boolean; source_format: string };
+type Report = { ignored_count?: number; auto_matched?: number; rows: number; created_matches: number; updated_matches: number; skipped_duplicates: number; created_teams: number; created_competitions: number; enriched_odds: number; warnings: string[]; dry_run: boolean; source_format: string };
 type FileRes = { name: string; report?: Report; errors?: { line: number; error: string }[]; message?: string };
 type Batch = { id: number; created_at: string; source: string; label: string; rows: number; created_matches: number; updated_matches: number; skipped: number; status: string };
 type League = { id: number; name: string };
@@ -97,17 +97,19 @@ function Catalog() {
         <div className="card mb-4" aria-live="polite">
           <p className="font-medium">{job.status === "running" ? `⏳ En cours — ${job.progress}` : job.status === "error" ? "✗ Échec" : "✓ Terminé"}</p>
           {job.message && <p className="mt-1 text-sm text-red-300">{job.message}</p>}
+          {job.results?.some((r) => r.status === "erreur") && <button className="btn-ghost mt-2" onClick={() => { const t = job.results!.filter((r) => r.status === "erreur").map((r) => `${r.label}\n  ${r.message}\n  ${r.url ?? ""}`).join("\n"); navigator.clipboard?.writeText(`Diagnostic PREDIX AI\n${t}`).then(() => toast("ok", "Diagnostic copié : collez-le dans la conversation.")); }}>Copier le diagnostic</button>}
           {job.results && job.results.length > 0 && (
             <table className="tbl mt-2"><thead><tr><th>Fichier</th><th>Résultat</th><th>Détail</th></tr></thead><tbody>
               {job.results.map((r, i) => (
                 <tr key={i}><td>{r.label}</td><td><span className={`badge ${r.status === "ok" ? "border-accent/50 text-accent" : r.status === "erreur" ? "border-red-500/50 text-red-300" : ""}`}>{r.status === "ok" ? "importé" : r.status === "absent" ? "absent (pas de fichier)" : "erreur"}</span></td>
-                  <td className="text-xs text-muted">{r.status === "ok" ? `${r.created} créé(s), ${r.updated} complété(s), ${r.skipped} déjà connu(s)` : r.message ?? ""}{r.warnings?.map((w) => <span key={w} className="block text-yellow-300">⚠ {w}</span>)}</td></tr>))}
+                  <td className="text-xs text-muted">{r.status === "ok" ? `${r.created} créé(s), ${r.updated} complété(s), ${r.skipped} déjà connu(s)${r.ignored ? `, ${r.ignored} ligne(s) ignorée(s)` : ""}${r.auto_matched ? `, ${r.auto_matched} équipe(s) reconnue(s)` : ""}` : r.message ?? ""}{r.ignored_sample?.map((x) => <span key={x} className="block text-yellow-300/80">ignorée — {x}</span>)}{r.warnings?.map((w) => <span key={w} className="block text-yellow-300">⚠ {w}</span>)}</td></tr>))}
             </tbody></table>)}
         </div>)}
       <input className="input mb-3 max-w-sm" placeholder="Filtrer (pays, nom, code)…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Filtrer les championnats" />
-      {cat.loading ? <SkeletonList /> : (["main", "extra"] as const).map((kind) => (
+      {cat.loading ? <SkeletonList /> : (["cup", "main", "extra"] as const).map((kind) => (
         <section key={kind} className="mb-5">
-          <h2 className="mb-2 font-medium">{kind === "main" ? "Championnats principaux (Europe)" : "Autres pays (Amérique, Asie, Nord de l'Europe…)"}</h2>
+          <h2 className="mb-2 font-medium">{kind === "cup" ? "Coupes européennes (UEFA)" : kind === "main" ? "Championnats principaux (Europe)" : "Autres pays (Amérique, Asie, Nord de l'Europe…)"}</h2>
+          {kind === "cup" && <p className="mb-2 text-xs text-muted">Ligue des champions, Europa League, Conference League : données libres (openfootball), mises à jour par des bénévoles — le calendrier peut avoir quelques jours de retard. Les équipes déjà connues dans vos championnats sont reconnues automatiquement.</p>}
           <div className="grid gap-2 sm:grid-cols-2">
             {list.filter((c) => c.kind === kind).map((c) => (
               <div key={c.code} className="card flex items-center gap-3">
@@ -130,12 +132,13 @@ function ImportFiles() {
   const [files, setFiles] = useState<File[]>([]);
   const [res, setRes] = useState<FileRes[]>([]);
   const [busy, setBusy] = useState(false);
+  const [tolerant, setTolerant] = useState(false);
   async function run(dry: boolean) {
     if (!files.length) return toast("error", "Choisissez au moins un fichier CSV.");
     setBusy(true); setRes([]);
     const out: FileRes[] = [];
     for (const f of files) {
-      try { out.push({ name: f.name, report: await uploadFile<Report>(`/import/matches?dry_run=${dry}`, f) }); }
+      try { out.push({ name: f.name, report: await uploadFile<Report>(`/import/matches?dry_run=${dry}&tolerant=${tolerant}`, f) }); }
       catch (e) {
         const d = (e as ApiError & { detail?: { errors?: { line: number; error: string }[] } }).detail;
         out.push({ name: f.name, errors: d?.errors, message: (e as Error).message });
@@ -153,12 +156,13 @@ function ImportFiles() {
         <input type="file" multiple accept=".csv,text/csv" className="input max-w-sm" aria-label="Fichiers CSV" onChange={(e) => { setFiles([...(e.target.files ?? [])]); setRes([]); }} />
         <button className="btn-ghost" disabled={busy || !files.length} onClick={() => run(true)}>1. Vérifier sans importer</button>
         <button className="btn" disabled={busy || !files.length} onClick={() => run(false)}>2. Importer {files.length > 1 ? `${files.length} fichiers` : ""}</button>
+        <label className="flex items-center gap-1.5 text-xs text-muted" title="Ignore les lignes invalides (match reporté sans score, date illisible) au lieu de refuser tout le fichier"><input type="checkbox" checked={tolerant} onChange={(e) => setTolerant(e.target.checked)} /> Ignorer les lignes invalides</label>
         {files.length > 0 && <span className="text-xs text-muted">{files.map((f) => f.name).join(", ")}</span>}
       </div>
       {res.map((r) => (
         <div key={r.name} className={`card mb-3 ${r.report ? "" : "border-red-500/40"}`}>
           <p className="font-medium">{r.name} {r.report ? <span className="badge ml-1 border-accent/50 text-accent">{r.report.dry_run ? "valide (non importé)" : "importé"}</span> : <span className="badge ml-1 border-red-500/50 text-red-300">refusé</span>}</p>
-          {r.report && <p className="mt-1 text-sm text-muted">Format : {r.report.source_format} · {r.report.created_matches} créé(s), {r.report.updated_matches} complété(s) avec leur résultat, {r.report.skipped_duplicates} déjà connu(s), {r.report.created_teams} équipe(s) et {r.report.created_competitions} compétition(s) créée(s){r.report.enriched_odds ? `, ${r.report.enriched_odds} jeu(x) de cotes ajouté(s)` : ""}.</p>}
+          {r.report && <p className="mt-1 text-sm text-muted">Format : {r.report.source_format} · {r.report.created_matches} créé(s), {r.report.updated_matches} complété(s) avec leur résultat, {r.report.skipped_duplicates} déjà connu(s), {r.report.created_teams} équipe(s) et {r.report.created_competitions} compétition(s) créée(s){r.report.ignored_count ? `, ${r.report.ignored_count} ligne(s) ignorée(s)` : ""}{r.report.auto_matched ? `, ${r.report.auto_matched} équipe(s) reconnue(s) automatiquement` : ""}{r.report.enriched_odds ? `, ${r.report.enriched_odds} jeu(x) de cotes ajouté(s)` : ""}.</p>}
           {r.message && <p className="mt-1 text-sm text-red-300">{r.message}</p>}
           {r.errors && <ul className="mt-1 max-h-40 overflow-auto text-xs text-red-300">{r.errors.slice(0, 30).map((e) => <li key={e.line}>Ligne {e.line} : {e.error}</li>)}</ul>}
           {r.report?.warnings.map((w) => <p key={w} className="mt-1 text-xs text-yellow-300">⚠ {w}</p>)}

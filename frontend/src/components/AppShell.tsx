@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import CommandPalette from "@/components/CommandPalette";
+import StatusBar from "@/components/StatusBar";
 import { ConfirmProvider, ToastProvider } from "@/components/kit";
 import { useApi, useToken } from "@/lib/hooks";
 import { logout, type User } from "@/lib/api";
@@ -18,6 +19,7 @@ const NAV = [
   { href: "/performance", label: "Performance", short: "Perf.", icon: "◔" },
   { href: "/reliability", label: "Fiabilité", short: "Fiabilité", icon: "✓" },
   { href: "/data", label: "Centre de données", short: "Données", icon: "⇩", admin: true },
+  { href: "/help", label: "Aide", short: "Aide", icon: "?" },
   { href: "/settings", label: "Paramètres", short: "Réglages", icon: "⚙" },
   { href: "/admin", label: "Administration", short: "Admin", icon: "⛨", admin: true },
 ];
@@ -74,6 +76,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col pb-16 md:pb-0">
+        <StatusBar user={user} />
         <div className="flex items-center justify-between border-b border-border px-4 py-2 md:hidden">
           <span className="font-mono text-xs tracking-widest text-accent">PREDIX AI</span>
           <button className="btn-ghost" onClick={() => setPalette(true)} aria-label="Rechercher">🔍</button>

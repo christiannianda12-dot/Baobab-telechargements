@@ -18,6 +18,9 @@
 | Conteneurs | processus non-root (uid 10001), healthchecks |
 | Sauvegardes | `scripts/backup_db.py` (SQLite, rotation, restauration testée), `scripts/backup_pg.sh` (PostgreSQL, rotation) |
 
+## Clés d'API
+La clé The Odds API saisie dans *Paramètres* est enregistrée dans la base locale (table `app_settings`) et **jamais renvoyée** par l'API (seulement « définie / non définie ») ; elle est modifiable et effaçable à tout moment. Pour un déploiement partagé, préférez la variable d'environnement `ODDS_API_KEY`. Seuls les domaines football-data.co.uk, raw.githubusercontent.com/openfootball et api.the-odds-api.com sont contactés.
+
 ## Limites connues (à connaître avant une mise en ligne publique)
 1. **Jeton de connexion toujours renvoyé dans le corps de `/auth/login`** (pour les scripts). Le frontend l'ignore, mais un script XSS pourrait appeler l'endpoint. Un mode « cookie seul » est une amélioration possible.
 2. **Pas de révocation de jeton** avant expiration (désactiver l'utilisateur bloque l'accès immédiatement, mais un jeton volé d'un compte actif reste valable jusqu'à son expiration). Pas de rafraîchissement : reconnexion toutes les 60 min.

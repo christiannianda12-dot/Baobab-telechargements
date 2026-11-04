@@ -10,7 +10,7 @@ const PAGES: Hit[] = [
   { label: "Tableau de bord", href: "/dashboard" }, { label: "Matchs", href: "/matches" }, { label: "Championnats", href: "/leagues" },
   { label: "Assistant IA", href: "/assistant" }, { label: "Combinés", href: "/combos" }, { label: "Historique", href: "/history" },
   { label: "Performance", href: "/performance" }, { label: "Fiabilité du modèle", href: "/reliability" }, { label: "Centre de données", href: "/data" },
-  { label: "Paramètres", href: "/settings" },
+  { label: "Aide et glossaire", href: "/help" }, { label: "Paramètres", href: "/settings" },
 ];
 
 /** Recherche rapide : Ctrl+K (ou « / ») — pages, équipes, championnats. */

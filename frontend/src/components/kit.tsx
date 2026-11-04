@@ -175,3 +175,26 @@ export const ago = (iso: string | null) => {
   const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
   return d <= 0 ? "aujourd'hui" : d === 1 ? "hier" : `il y a ${d} jours`;
 };
+
+/** Info-bulle d'aide en langage simple : survol, focus clavier ou toucher. */
+export function Hint({ children, label = "Aide" }: { children: React.ReactNode; label?: string }) {
+  return (
+    <span className="group relative ml-1 inline-block align-middle">
+      <button type="button" aria-label={label} className="h-4 w-4 rounded-full border border-border text-[10px] leading-none text-muted hover:text-foreground focus:text-foreground">?</button>
+      <span role="tooltip" className="pointer-events-none absolute left-1/2 top-5 z-30 hidden w-64 -translate-x-1/2 rounded-lg border border-border bg-surface p-2 text-xs font-normal text-foreground shadow-xl group-hover:block group-focus-within:block">{children}</span>
+    </span>
+  );
+}
+
+/** Barres de probabilité 1X2 compactes. */
+export function ProbBar({ p, labels }: { p: { home: number; draw: number; away: number }; labels: [string, string] }) {
+  const pc = (x: number) => `${Math.round(x * 100)}%`;
+  return (
+    <div aria-label={`${labels[0]} ${pc(p.home)}, nul ${pc(p.draw)}, ${labels[1]} ${pc(p.away)}`}>
+      <div className="flex h-2 overflow-hidden rounded bg-border">
+        <div className="bg-accent" style={{ width: pc(p.home) }} /><div className="bg-zinc-500" style={{ width: pc(p.draw) }} /><div className="bg-sky-500" style={{ width: pc(p.away) }} />
+      </div>
+      <div className="mt-0.5 flex justify-between text-[11px] text-muted"><span>{pc(p.home)}</span><span>nul {pc(p.draw)}</span><span>{pc(p.away)}</span></div>
+    </div>
+  );
+}

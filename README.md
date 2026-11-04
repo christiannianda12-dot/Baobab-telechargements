@@ -73,6 +73,16 @@ cd frontend && npm install && npm run dev
 
 Les cotes n'existent que si elles ont été saisies. L'analyse n'applique la correction de marge qu'aux marchés **complets** (1X2, Over/Under, BTTS).
 
+## Version 3 : automatique, coupes européennes, meilleures cotes, combinés proposés
+
+- **Automatisation** : l'application se met à jour toute seule (toutes les 1 à 24 h, réglable) : résultats, calendrier, cotes, **enregistrement automatique des prédictions** avant chaque match, règlement après. Barre d'état en haut, journal des exécutions dans *Paramètres*, bouton « Mettre à jour maintenant ».
+- **Coupes européennes** : Ligue des champions, Europa League, Conference League (openfootball, domaine public ; vérifié sur les vrais fichiers, 2020-21 à 2025-26). Les équipes déjà connues dans vos championnats sont reconnues automatiquement (pas de doublons).
+- **Téléchargements plus fiables** : mode tolérant (un match reporté sans score n'invalide plus tout un championnat ; les lignes ignorées sont listées), nouvelles tentatives automatiques, diagnostic copiable en cas d'échec.
+- **Meilleures cotes** : cotes de plusieurs bookmakers (Bet365, Pinnacle, Betfred… et meilleure/moyenne du marché) ; avec **votre clé personnelle The Odds API** (facultatif), cotes nommées d'autres bookmakers dont **1xBet** selon la région. Lecture seule : l'application ne place aucun pari.
+- **Combinés proposés** (prudent / équilibré / ambitieux) : sélections issues du marché (70 %) et du modèle (30 %), meilleures cotes entre bookmakers, probabilité conjointe, **valeur espérée affichée telle quelle**, explication de chaque jambe.
+- **Interface dynamique** : tableau de bord rafraîchi automatiquement avec probabilités et meilleures cotes de chaque match, aide en langage simple (info-bulles « ? » et page *Aide*).
+- **Limites** : le modèle reste moins précis que le marché (voir *Fiabilité*) donc les « valeurs » sont souvent des erreurs d'estimation ; les coupes openfootball sont tenues à jour par des bénévoles (retards possibles) ; les autres coupes continentales (Libertadores, CAF…) n'ont pas de source libre fiable ici.
+
 ## Version 2 : tous les championnats et outils anti-erreurs
 
 - **38 championnats en un clic** (Centre de données) : 22 principaux (Angleterre à Grèce) + 16 autres pays (Brésil, Argentine, USA, Japon…), téléchargés depuis football-data.co.uk par l'application elle-même, puis mis à jour d'un clic (résultats + **prochains matchs avec cotes**). Un match programmé reçoit son résultat et **règle automatiquement les prédictions** enregistrées.

@@ -109,6 +109,9 @@ def test_resolve_existing_rules_are_cautious():
             "Milan",
             "Inter",
             "Bologna",
+            "West Ham",
+            "Brighton",
+            "Leicester",
         ]
     }
     r = lambda n: (lambda x: x and (x[0].name, x[1]))(resolve_existing(norm_key(n), known))  # noqa: E731
@@ -122,7 +125,10 @@ def test_resolve_existing_rules_are_cautious():
     assert r("Club Atlético de Madrid")[0] == "Ath Madrid" and r("AC Milan")[0] == "Milan"
     assert r("Real Madrid CF")[0] == "Real Madrid" and r("Real Sociedad de Fútbol")[0] == "Sociedad"
     assert (
-        r("Real Betis") is None
+        r("West Ham United")[0] == "West Ham"
+        and r("Brighton & Hove Albion")[0] == "Brighton"
+        and r("Leicester City")[0] == "Leicester"
+        and r("Real Betis") is None
         and r("Inter Miami") is None
         and r("Manchester Metropolitan") is None
     )  # jamais de fusion hasardeuse

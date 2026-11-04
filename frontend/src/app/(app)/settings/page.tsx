@@ -1,6 +1,7 @@
 "use client";
 
 import ApiStatus from "@/components/ApiStatus";
+import AutomationPanel from "@/components/AutomationPanel";
 import { PageTitle } from "@/components/ui";
 import { useApi } from "@/lib/hooks";
 import { logout, type User } from "@/lib/api";
@@ -16,6 +17,7 @@ export default function Settings() {
         <p className="mt-1 text-xs text-muted">Rôle : {user?.role}</p>
         <button className="btn-ghost mt-3" onClick={logout}>Se déconnecter</button>
       </section>
+      <AutomationPanel isAdmin={user?.role === "admin"} />
       <section className="card">
         <h2 className="mb-3 font-medium">Système et fournisseurs de données</h2>
         <ApiStatus />
