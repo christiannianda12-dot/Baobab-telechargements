@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     cookie_samesite: str = "lax"
     # Usage interne : accepte le site ouvert via l'IP du PC sur le réseau local (jamais en production)
     allow_lan_origins: bool = False
+    scheduler_enabled: bool = True  # planificateur interne (désactivé automatiquement en test)
     trust_proxy_headers: bool = (
         False  # True derrière un reverse proxy de confiance (X-Forwarded-For)
     )

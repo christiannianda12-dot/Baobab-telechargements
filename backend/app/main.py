@@ -1,3 +1,6 @@
+import asyncio
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -6,9 +9,24 @@ from app.core.config import get_settings
 from app.core.middleware import OriginCheckMiddleware, SecurityHeadersMiddleware
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    s = get_settings()
+    task = None
+    if s.scheduler_enabled and s.environment != "test":
+        from app.db.session import SessionLocal
+        from app.services import scheduler
+
+        task = asyncio.create_task(scheduler.loop(SessionLocal))
+    yield
+    if task:
+        task.cancel()
+
+
 def create_app() -> FastAPI:
     s = get_settings()
     app = FastAPI(
+        lifespan=lifespan,
         title=f"{s.app_name} API",
         version="0.1.0",
         docs_url="/docs" if s.environment != "production" else None,

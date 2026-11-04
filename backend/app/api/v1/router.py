@@ -4,6 +4,7 @@ from app.api.v1 import (
     admin,
     assistant,
     auth,
+    automation,
     benchmark,
     combos,
     data,
@@ -30,3 +31,4 @@ api_router.include_router(combos.router)
 api_router.include_router(assistant.router)
 api_router.include_router(benchmark.router)
 api_router.include_router(dataops.router)
+api_router.include_router(automation.router)
